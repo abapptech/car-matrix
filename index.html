@@ -107,8 +107,8 @@
 
 <header>
   <div>
-    <div class="logo">KNR CARS <span class="pill"><span class="dot"></span>Live</span></div>
-    <h1>Матрица автомобилей КНР</h1>
+    <div class="logo">Авто и КНР <span class="pill"><span class="dot"></span>Live</span></div>
+    <h1>Матрица автомобилей КНР: до 160 л.с., 3-5 лет</h1>
   </div>
   <div class="header-meta">Данные обновляются из Google Sheets<br>Кяхта · Забайкальск · Уссурийск · Александров</div>
 </header>
@@ -186,29 +186,36 @@ async function loadData() {
   const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
   const rows = json.table.rows;
   const data = [];
-  let currentCountry = '';
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] && rows[i].c ? rows[i].c : null;
     if (!r) continue;
     const val = v => r[v] && r[v].v !== null ? String(r[v].v).trim() : '';
     const num = v => r[v] && r[v].v !== null ? Number(r[v].v) : null;
-    if (val(1)) currentCountry = val(1);
-    const brand = val(2);
-    if (!brand) continue;
-    const kyakhta = num(8);
-    const zabaikalsk = num(9);
-    const ussuriysk = num(10);
+
+    const country = val(1);
+    const brand   = val(2);
+    const model   = val(3);
+
+    // Пропускаем строки без марки или без страны (заголовки, разделители)
+    if (!brand || !country) continue;
+    // Пропускаем если страна содержит служебный текст
+    if (country.toLowerCase().includes('страна') || country.toLowerCase().includes('бренд')) continue;
+
+    const kyakhta     = num(8);
+    const zabaikalsk  = num(9);
+    const ussuriysk   = num(10);
     const aleksandrov = num(11);
-    const yuan = num(12);
+    const yuan        = num(12);
+
+    // Пропускаем строки-разделители (СЕДАНЫ, SUV и т.д.) — нет ни одной цены
     if (kyakhta === null && zabaikalsk === null && ussuriysk === null && aleksandrov === null) continue;
+
     data.push({
-      country: currentCountry,
-      brand,
-      model: val(3),
+      country, brand, model,
       engine: val(4),
-      drive: val(5),
-      trans: val(6),
-      body: val(7),
+      drive:  val(5),
+      trans:  val(6),
+      body:   val(7),
       kyakhta, zabaikalsk, ussuriysk, aleksandrov, yuan
     });
   }
