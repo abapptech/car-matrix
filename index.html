@@ -221,6 +221,8 @@
   <div style="margin-bottom:12px;padding:10px 14px;background:rgba(200,240,74,0.05);border:1px solid rgba(200,240,74,0.15);border-radius:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.6;">
     ⚠ Цены по городам приведены справочно для примерного понимания средней стоимости автомобиля с учётом доставки. Фактическая стоимость может отличаться в зависимости от комплектации, курса валют и условий поставки.
   </div>
+  <div class="stats" id="stats"></div>
+
   <div class="table-wrap">
     <table>
       <thead id="thead"></thead>
@@ -355,6 +357,7 @@ function applyFilters() {
     });
   }
   renderTable(filtered);
+  renderStats(filtered);
 }
 
 
@@ -412,6 +415,12 @@ function rowHtml(d) {
     <td class="price">${fmt(d.aleksandrov)}</td>
     <td class="price-yuan">${fmtY(d.yuan)}</td>
   </tr>`;
+}
+
+function renderStats(data) {
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Моделей</div><div class="stat-val">${data.length}</div></div>
+  `;
 }
 
 function setSort(col) { sortDir = sortCol===col ? sortDir*-1 : 1; sortCol=col; applyFilters(); }
