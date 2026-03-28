@@ -107,8 +107,8 @@
 
 <header>
   <div>
-    <div class="logo">Авто из КНР <span class="pill"><span class="dot"></span>Live</span></div>
-    <h1>Матрица автомобилей КНР: до 160 л.с., 3-5 лет</h1>
+    <div class="logo">KNR CARS <span class="pill"><span class="dot"></span>Live</span></div>
+    <h1>Матрица автомобилей КНР</h1>
   </div>
   <div class="header-meta">Данные обновляются из Google Sheets<br>Кяхта · Забайкальск · Уссурийск · Александров</div>
 </header>
@@ -252,7 +252,8 @@ function getColVal(d, col) {
 }
 
 function inRange(val, min, max) {
-  if (val == null) return (min == null && max == null);
+  if (min == null && max == null) return true;
+  if (val == null) return true;
   if (min != null && val < min) return false;
   if (max != null && val > max) return false;
   return true;
