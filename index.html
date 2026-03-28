@@ -218,8 +218,6 @@
     </div>
   </div>
 
-  <div class="stats" id="stats"></div>
-
   <div style="margin-bottom:12px;padding:10px 14px;background:rgba(200,240,74,0.05);border:1px solid rgba(200,240,74,0.15);border-radius:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.6;">
     ⚠ Цены по городам приведены справочно для примерного понимания средней стоимости автомобиля с учётом доставки. Фактическая стоимость может отличаться в зависимости от комплектации, курса валют и условий поставки.
   </div>
@@ -357,21 +355,8 @@ function applyFilters() {
     });
   }
   renderTable(filtered);
-  renderStats(filtered);
 }
 
-function renderStats(data) {
-  const prices = data.map(d=>d.kyakhta).filter(v=>v!=null);
-  const min = prices.length ? Math.min(...prices) : null;
-  const max = prices.length ? Math.max(...prices) : null;
-  const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Моделей</div><div class="stat-val">${data.length}</div></div>
-    ${min!=null?`<div class="stat"><div class="stat-label">Мин (Кяхта)</div><div class="stat-val">${fmt(min)}</div></div>`:''}
-    ${avg!=null?`<div class="stat"><div class="stat-label">Среднее (Кяхта)</div><div class="stat-val">${fmt(avg)}</div></div>`:''}
-    ${max!=null?`<div class="stat"><div class="stat-label">Макс (Кяхта)</div><div class="stat-val">${fmt(max)}</div></div>`:''}
-  `;
-}
 
 const COLS = ['Страна бренда','Марка','Модель','Объём','Привод','Трансмиссия','Кузов','Кяхта, ₽','Забайкальск, ₽','Уссурийск, ₽','Александров, ₽','Цена в КНР, ¥'];
 
