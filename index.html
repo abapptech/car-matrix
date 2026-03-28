@@ -118,9 +118,7 @@
     </div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
-    <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.7;">
-      Данные из Google Sheets · Кяхта · Забайкальск · Уссурийск · Александров
-    </div>
+
     <div style="display:flex;gap:10px;">
       <a href="https://t.me/abappb2b" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:rgba(91,232,200,0.08);border:1px solid rgba(91,232,200,0.25);border-radius:8px;padding:8px 16px;color:var(--accent2);text-decoration:none;font-family:var(--font-mono);font-size:12px;font-weight:500;transition:background 0.15s;" onmouseover="this.style.background='rgba(91,232,200,0.15)'" onmouseout="this.style.background='rgba(91,232,200,0.08)'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -191,7 +189,7 @@
 </div>
 
 <footer>
-  <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Данные загружаются из Google Sheets API</span>
+  <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">© Abapp. All rights reserved. Все права защищены.</span>
 </footer>
 
 <script>
@@ -340,7 +338,37 @@ function renderTable(data) {
 
   const tbody = document.getElementById('tbody');
   if (!data.length) { tbody.innerHTML = `<tr><td colspan="12"><div class="empty">Ничего не найдено</div></td></tr>`; return; }
-  tbody.innerHTML = data.map(d => `<tr>
+
+  // Группировка по типу кузова (только если нет активной сортировки)
+  let rows = '';
+  if (sortCol === null) {
+    const ORDER = ['седан','хэтчбэк','хатчбэк','suv','кроссовер','минивэн','mpv','универсал','купе','пикап'];
+    const groups = {};
+    data.forEach(d => {
+      const b = (d.body||'').toLowerCase();
+      const key = d.body || 'Другое';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(d);
+    });
+    const sortedKeys = Object.keys(groups).sort((a,b) => {
+      const ai = ORDER.findIndex(o => a.toLowerCase().includes(o));
+      const bi = ORDER.findIndex(o => b.toLowerCase().includes(o));
+      const av = ai === -1 ? 99 : ai;
+      const bv = bi === -1 ? 99 : bi;
+      return av - bv;
+    });
+    sortedKeys.forEach(key => {
+      rows += `<tr><td colspan="12" style="background:var(--surface2);padding:8px 14px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);border-bottom:1px solid var(--border2);">${key} <span style="color:var(--muted);font-size:10px;">(${groups[key].length})</span></td></tr>`;
+      rows += groups[key].map(d => rowHtml(d)).join('');
+    });
+  } else {
+    rows = data.map(d => rowHtml(d)).join('');
+  }
+  tbody.innerHTML = rows;
+}
+
+function rowHtml(d) {
+  return `<tr>
     <td style="color:var(--muted);font-size:12px;">${d.country||'—'}</td>
     <td class="brand">${d.brand}</td>
     <td>${d.model}</td>
@@ -353,7 +381,7 @@ function renderTable(data) {
     <td class="price">${fmt(d.ussuriysk)}</td>
     <td class="price">${fmt(d.aleksandrov)}</td>
     <td class="price-yuan">${fmtY(d.yuan)}</td>
-  </tr>`).join('');
+  </tr>`;
 }
 
 function setSort(col) { sortDir = sortCol===col ? sortDir*-1 : 1; sortCol=col; applyFilters(); }
