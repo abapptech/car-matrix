@@ -484,7 +484,7 @@ document.addEventListener('click', function(e) {
     const body   = cells[6].textContent.trim();
     const msg = encodeURIComponent(`Здравствуйте! Хочу сделать заявку на автомобиль: ${brand} ${model}${engine && engine!=='—' ? ', '+engine : ''}${body && body!=='—' ? ', '+body : ''}.`);
     document.getElementById('popupCar').textContent = `${brand} ${model}`;
-    const photoQuery = encodeURIComponent(`${brand} ${model} 3-5 лет фото`);
+    const photoQuery = encodeURIComponent(`${brand} ${model} 3-5 лет из китая фото`);
     document.getElementById('popupPhoto').href = `https://www.google.com/search?tbm=isch&q=${photoQuery}`;
     const msgDecoded = decodeURIComponent(msg);
     document.getElementById('popupCopyText').textContent = msgDecoded;
