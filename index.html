@@ -475,7 +475,11 @@ document.addEventListener('click', function(e) {
     const body   = cells[6].textContent.trim();
     const msg = encodeURIComponent(`Здравствуйте! Хочу сделать заявку на автомобиль: ${brand} ${model}${engine && engine!=='—' ? ', '+engine : ''}${body && body!=='—' ? ', '+body : ''}.`);
     document.getElementById('popupCar').textContent = `${brand} ${model}`;
-    document.getElementById('popupVk').href = `https://vk.com/im?sel=-abappru&text=${msg}`;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const vkHref = isMobile
+      ? `vk://im?sel=-228607654&text=${msg}`
+      : `https://vk.com/im?sel=-228607654&text=${msg}`;
+    document.getElementById('popupVk').href = vkHref;
     document.getElementById('popupTg').href = `https://t.me/abappconnect?text=${msg}`;
     // Position near click
     const x = Math.min(e.clientX + 10, window.innerWidth - 300);
