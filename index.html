@@ -178,6 +178,9 @@
 
   <div class="stats" id="stats"></div>
 
+  <div style="margin-bottom:12px;padding:10px 14px;background:rgba(200,240,74,0.05);border:1px solid rgba(200,240,74,0.15);border-radius:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.6;">
+    ⚠ Цены по городам приведены справочно для примерного понимания средней стоимости автомобиля с учётом доставки. Фактическая стоимость может отличаться в зависимости от комплектации, курса валют и условий поставки.
+  </div>
   <div class="table-wrap">
     <table>
       <thead id="thead"></thead>
@@ -328,7 +331,7 @@ function renderStats(data) {
   `;
 }
 
-const COLS = ['Страна','Марка','Модель','Объём','Привод','Трансмиссия','Кузов','Кяхта, ₽','Забайкальск, ₽','Уссурийск, ₽','Александров, ₽','Юань, ¥'];
+const COLS = ['Страна','Марка','Модель','Объём','Привод','Трансмиссия','Кузов','Кяхта, ₽','Забайкальск, ₽','Уссурийск, ₽','Александров, ₽','Цена в КНР, ¥'];
 
 function renderTable(data) {
   document.getElementById('thead').innerHTML = '<tr>' + COLS.map((c,i) => {
