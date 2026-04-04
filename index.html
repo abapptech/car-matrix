@@ -267,7 +267,7 @@ let eurRate = 92.0;
 async function loadRates() {
   try {
     const [r1, r2] = await Promise.all([
-      fetch('https://raw.githubusercontent.com/abapptech/vtb-rate/main/vtb_rate.json').then(r=>r.json()),
+      fetch('https://raw.githubusercontent.com/abapptech/calculator/main/vtb_rate.json').then(r=>r.json()),
       fetch('https://www.cbr-xml-daily.ru/daily_json.js').then(r=>r.json()),
     ]);
     if (r1.cny_sell) vtbRate = parseFloat(r1.cny_sell);
