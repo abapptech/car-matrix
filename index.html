@@ -156,6 +156,7 @@
   gtag('js', new Date());
   gtag('config', 'G-0T7CPPNW61');
 </script>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "4428712d099b4cfd89406499fd34b70e"}'></script><!-- End Cloudflare Web Analytics -->
 </head>
 <body>
 
@@ -240,8 +241,7 @@
     ⚠ Цены по городам приведены справочно для примерного понимания средней стоимости автомобиля с учётом доставки. Фактическая стоимость может отличаться в зависимости от комплектации, курса валют и условий поставки.
   </div>
   <div class="stats" id="stats"></div>
-
-  <div class="table-wrap">
+  <div id="rates" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;margin-top:-10px;"></div>
     <table>
       <thead id="thead"></thead>
       <tbody id="tbody">
@@ -578,6 +578,32 @@ document.addEventListener('click', function(e) {
     closePopup();
   }
 });
+
+async function loadRates() {
+  try {
+    const res = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
+    const data = await res.json();
+    const cny = data.Valute.CNY;
+    const usd = data.Valute.USD;
+    const date = new Date(data.Date).toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
+    document.getElementById('rates').innerHTML = `
+      <div class="stat" style="min-width:0;">
+        <div class="stat-label">Юань CNY · ЦБ РФ</div>
+        <div class="stat-val" style="font-size:15px;">${cny.Value.toFixed(2)} ₽</div>
+      </div>
+      <div class="stat" style="min-width:0;">
+        <div class="stat-label">Доллар USD · ЦБ РФ</div>
+        <div class="stat-val" style="font-size:15px;">${usd.Value.toFixed(2)} ₽</div>
+      </div>
+      <div class="stat" style="min-width:0;align-self:center;">
+        <div class="stat-label">Курс на</div>
+        <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">${date}</div>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('rates').innerHTML = '';
+  }
+}
 
 async function init() {
   try {
