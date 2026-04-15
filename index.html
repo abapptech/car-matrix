@@ -339,6 +339,8 @@
 </footer>
 
 <script>
+const EMBEDDED_DATA = [];
+// __EMBEDDED_DATA_END__
 const SHEET_ID = '1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo';
 let allData = [];
 let sortCol = null, sortDir = 1;
@@ -419,13 +421,19 @@ async function calcPrices(pCny, cc, kw) {
 }
 
 async function loadData() {
+  // ── Используем встроенные данные если есть ──
+  if (EMBEDDED_DATA && EMBEDDED_DATA.length > 0) {
+    allData = EMBEDDED_DATA;
+    applyFilters();
+    populateSelects();
+    return;
+  }
+  // ── Fallback: загрузка из Google Sheets ──
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
   const res = await fetch(url);
   const text = await res.text();
   const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
   const rows = json.table.rows;
-
-  // ── Сначала парсим все строки синхронно ──
   const candidates = [];
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] && rows[i].c ? rows[i].c : null;
@@ -438,245 +446,40 @@ async function loadData() {
     if (country.toLowerCase().includes('страна') || country.toLowerCase().includes('бренд')) continue;
     candidates.push({
       country, brand,
-      model:  val(3),
-      engine: val(4),
-      drive:  val(5),
-      trans:  val(6),
-      body:   val(7),
-      yuan:   num(12),
-      fb8: num(8), fb9: num(9), fb10: num(10), fb11: num(11),
+      model:      val(3),
+      engine:     val(4),
+      drive:      val(5),
+      trans:      val(6),
+      body:       val(7),
+      kyakhta:    num(8),
+      zabaikalsk: num(9),
+      ussuriysk:  num(10),
+      aleksandrov:num(11),
+      yuan:       num(12),
     });
   }
-
-  // ── Все запросы к Worker параллельно ──
-  const prices = await Promise.all(
-    candidates.map(c => c.yuan ? calcPrices(c.yuan, parseCC(c.engine), 110) : Promise.resolve(null))
-  );
-
-  // ── Собираем итоговый массив ──
-  const data = [];
-  for (let i = 0; i < candidates.length; i++) {
-    const c = candidates[i];
-    const _p = prices[i];
-    const kyakhta     = _p ? _p.kyakhta     : c.fb8;
-    const zabaikalsk  = _p ? _p.zabaikalsk  : c.fb9;
-    const ussuriysk   = _p ? _p.ussuriysk   : c.fb10;
-    const aleksandrov = _p ? _p.aleksandrov : c.fb11;
-    if (kyakhta === null && zabaikalsk === null && ussuriysk === null && aleksandrov === null) continue;
-    data.push({ country: c.country, brand: c.brand, model: c.model,
+  // Calc prices async
+  for (const c of candidates) {
+    const cc = parseCC(c.engine);
+    const kw = 110;
+    const pCny = c.yuan;
+    if (pCny && cc) {
+      try {
+        const p = await calcPrices(pCny, cc, kw);
+        c.kyakhta    = p.kyakhta    ?? c.kyakhta;
+        c.zabaikalsk = p.zabaikalsk ?? c.zabaikalsk;
+        c.ussuriysk  = p.ussuriysk  ?? c.ussuriysk;
+        c.aleksandrov= p.aleksandrov?? c.aleksandrov;
+      } catch(e) {}
+    }
+    allData.push({ country: c.country, brand: c.brand, model: c.model,
       engine: c.engine, drive: c.drive, trans: c.trans, body: c.body,
-      kyakhta, zabaikalsk, ussuriysk, aleksandrov, yuan: c.yuan });
+      kyakhta: c.kyakhta, zabaikalsk: c.zabaikalsk,
+      ussuriysk: c.ussuriysk, aleksandrov: c.aleksandrov, yuan: c.yuan });
   }
-  return data;
-}
-
-function fmt(n) { return n != null ? Number(n).toLocaleString('ru-RU') + ' ₽' : '—'; }
-function fmtY(n) { return n != null ? Number(n).toLocaleString('ru-RU') + ' ¥' : '—'; }
-
-function badgeClass(body) {
-  const b = (body||'').toLowerCase();
-  if (b.includes('седан')) return 'b-sedan';
-  if (b.includes('хэтч')||b.includes('хатч')) return 'b-hatch';
-  if (b.includes('suv')||b.includes('внедор')||b.includes('кроссо')) return 'b-suv';
-  if (b.includes('cross')||b.includes('кросс')) return 'b-cross';
-  return 'b-other';
-}
-
-function populateSelect(id, values) {
-  const sel = document.getElementById(id), cur = sel.value;
-  while (sel.options.length > 1) sel.remove(1);
-  [...new Set(values)].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ru')).forEach(v=>sel.add(new Option(v,v)));
-  if (cur) sel.value = cur;
-}
-
-function gv(id) { return document.getElementById(id).value; }
-function gn(id) { const v = document.getElementById(id).value; return v === '' ? null : Number(v); }
-
-const COL_KEYS = ['country','brand','model','engine','drive','trans','body','kyakhta','zabaikalsk','ussuriysk','aleksandrov','yuan'];
-
-function getColVal(d, col) {
-  const v = d[COL_KEYS[col]];
-  return [3,7,8,9,10,11].includes(col) ? (v == null ? null : parseFloat(v)||null) : (v||'');
-}
-
-function inRange(val, min, max) {
-  if (min == null && max == null) return true;
-  if (val == null) return true;
-  if (min != null && val < min) return false;
-  if (max != null && val > max) return false;
-  return true;
-}
-
-function applyFilters() {
-  const search  = gv('search').toLowerCase();
-  const country = gv('fCountry'), brand = gv('fBrand'), body = gv('fBody');
-  const drive   = gv('fDrive'),   trans = gv('fTrans'), engine = gv('fEngine'), model = gv('fModel');
-  const kMin = gn('pKyakhtaMin'),    kMax = gn('pKyakhtaMax');
-  const zMin = gn('pZabaikalskMin'), zMax = gn('pZabaikalskMax');
-  const uMin = gn('pUssuriyskMin'),  uMax = gn('pUssuriyskMax');
-  const aMin = gn('pAleksandrovMin'),aMax = gn('pAleksandrovMax');
-  const yMin = gn('pYuanMin'),       yMax = gn('pYuanMax');
-
-  let filtered = allData.filter(d => {
-    if (search  && !(d.brand+' '+d.model).toLowerCase().includes(search)) return false;
-    if (country && d.country !== country) return false;
-    if (brand   && d.brand   !== brand)   return false;
-    if (body    && d.body    !== body)    return false;
-    if (drive   && d.drive   !== drive)   return false;
-    if (trans   && d.trans   !== trans)   return false;
-    if (engine  && d.engine  !== engine)  return false;
-    if (model   && d.model   !== model)   return false;
-    if (!inRange(d.kyakhta,    kMin, kMax)) return false;
-    if (!inRange(d.zabaikalsk, zMin, zMax)) return false;
-    if (!inRange(d.ussuriysk,  uMin, uMax)) return false;
-    if (!inRange(d.aleksandrov,aMin, aMax)) return false;
-    if (!inRange(d.yuan,       yMin, yMax)) return false;
-    return true;
-  });
-
-  if (sortCol !== null) {
-    filtered.sort((a,b) => {
-      let av = getColVal(a, sortCol), bv = getColVal(b, sortCol);
-      if (typeof av === 'string') return sortDir * av.localeCompare(bv,'ru');
-      if (av == null) return 1; if (bv == null) return -1;
-      return sortDir * (av - bv);
-    });
-  }
-  renderTable(filtered);
-  renderStats(filtered);
-}
-
-
-const COLS = ['Страна бренда','Марка','Модель','Объём','Привод','Трансмиссия','Кузов','Кяхта, ₽','Забайкальск, ₽','Уссурийск, ₽','Александров, ₽','Цена в КНР, ¥'];
-
-function renderTable(data) {
-  document.getElementById('thead').innerHTML = '<tr>' + COLS.map((c,i) => {
-    const cls = sortCol===i ? (sortDir===1?'sort-asc':'sort-desc') : '';
-    return `<th class="${cls}" onclick="setSort(${i})">${c}</th>`;
-  }).join('') + '</tr>';
-
-  const tbody = document.getElementById('tbody');
-  if (!data.length) { tbody.innerHTML = `<tr><td colspan="12"><div class="empty">Ничего не найдено</div></td></tr>`; return; }
-
-  // Группировка по типу кузова (только если нет активной сортировки)
-  let rows = '';
-  if (sortCol === null) {
-    const ORDER = ['седан','хэтчбэк','хатчбэк','suv','кроссовер','минивэн','mpv','универсал','купе','пикап'];
-    const groups = {};
-    data.forEach(d => {
-      const b = (d.body||'').toLowerCase();
-      const key = d.body || 'Другое';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(d);
-    });
-    const sortedKeys = Object.keys(groups).sort((a,b) => {
-      const ai = ORDER.findIndex(o => a.toLowerCase().includes(o));
-      const bi = ORDER.findIndex(o => b.toLowerCase().includes(o));
-      const av = ai === -1 ? 99 : ai;
-      const bv = bi === -1 ? 99 : bi;
-      return av - bv;
-    });
-    sortedKeys.forEach(key => {
-      rows += `<tr><td colspan="12" style="background:var(--surface2);padding:8px 14px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);border-bottom:1px solid var(--border2);">${key} <span style="color:var(--muted);font-size:10px;">(${groups[key].length})</span></td></tr>`;
-      rows += groups[key].map(d => rowHtml(d)).join('');
-    });
-  } else {
-    rows = data.map(d => rowHtml(d)).join('');
-  }
-  tbody.innerHTML = rows;
-}
-
-function rowHtml(d) {
-  const msg = encodeURIComponent(`Здравствуйте! Хочу сделать заявку на автомобиль: ${d.brand} ${d.model}${d.engine ? ', ' + d.engine : ''}${d.body ? ', ' + d.body : ''}.`);
-  const vkUrl = `https://vk.com/im?sel=-abappru&text=${msg}`;
-  const tgUrl = `https://t.me/abappconnect?text=${msg}`;
-  return `<tr>
-    <td style="color:var(--muted);font-size:12px;">${d.country||'—'}</td>
-    <td class="brand">${d.brand}</td>
-    <td>${d.model}</td>
-    <td style="font-family:var(--font-mono);font-size:12px;">${d.engine||'—'}</td>
-    <td>${d.drive||'—'}</td>
-    <td style="font-family:var(--font-mono);font-size:12px;">${d.trans||'—'}</td>
-    <td><span class="badge ${badgeClass(d.body)}">${d.body||'—'}</span></td>
-    <td class="price">${fmt(d.kyakhta)}</td>
-    <td class="price">${fmt(d.zabaikalsk)}</td>
-    <td class="price">${fmt(d.ussuriysk)}</td>
-    <td class="price">${fmt(d.aleksandrov)}</td>
-    <td class="price-yuan">${fmtY(d.yuan)}</td>
-  </tr>`;
-  // attach click after render via event delegation (handled globally)
-}
-
-function renderStats(data) {
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Моделей</div><div class="stat-val">${data.length}</div></div>
-  `;
-}
-
-function setSort(col) { sortDir = sortCol===col ? sortDir*-1 : 1; sortCol=col; applyFilters(); }
-
-function resetFilters() {
-  document.getElementById('search').value = '';
-  ['fCountry','fBrand','fModel','fEngine','fDrive','fTrans','fBody'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  ['pKyakhtaMin','pKyakhtaMax','pZabaikalskMin','pZabaikalskMax',
-   'pUssuriyskMin','pUssuriyskMax','pAleksandrovMin','pAleksandrovMax',
-   'pYuanMin','pYuanMax'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  sortCol = null;
-  sortDir = 1;
   applyFilters();
+  populateSelects();
 }
-
-function copyPopupText() {
-  const text = document.getElementById('popupCopyText').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('btnCopy');
-    btn.textContent = '✓ Скопировано';
-    setTimeout(() => { btn.textContent = '📋 Копировать'; }, 2000);
-  });
-}
-
-function closePopup() {
-  document.getElementById('rowPopup').classList.remove('active');
-}
-
-document.addEventListener('click', function(e) {
-  const popup = document.getElementById('rowPopup');
-  const tr = e.target.closest('tbody tr');
-  if (tr && !e.target.closest('a')) {
-    const cells = tr.querySelectorAll('td');
-    if (cells.length < 4) return;
-    const brand  = cells[1].textContent.trim();
-    const model  = cells[2].textContent.trim();
-    const engine = cells[3].textContent.trim();
-    const body   = cells[6].textContent.trim();
-    const msg = encodeURIComponent(`Здравствуйте! Хочу сделать заявку на автомобиль: ${brand} ${model}${engine && engine!=='—' ? ', '+engine : ''}${body && body!=='—' ? ', '+body : ''}.`);
-    document.getElementById('popupCar').textContent = `${brand} ${model}`;
-    const photoQuery = encodeURIComponent(`${brand} ${model} 3-5 лет из китая фото`);
-    document.getElementById('popupPhoto').href = `https://www.google.com/search?tbm=isch&q=${photoQuery}`;
-    const msgDecoded = decodeURIComponent(msg);
-    document.getElementById('popupCopyText').textContent = msgDecoded;
-    document.getElementById('popupCopyBlock').style.display = 'block';
-    document.getElementById('btnCopy').textContent = '📋 Копировать';    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const vkHref = isMobile
-      ? `https://vk.com/im?sel=-230371552`
-      : `https://vk.com/im?sel=-230371552&text=${msg}`;
-    document.getElementById('popupVk').href = vkHref;
-    document.getElementById('popupTg').href = `https://t.me/abappconnect?text=${msg}`;
-    // Position near click
-    const x = Math.min(e.clientX + 10, window.innerWidth - 300);
-    const y = Math.min(e.clientY + 10, window.innerHeight - 160);
-    popup.style.left = x + 'px';
-    popup.style.top  = y + 'px';
-    popup.classList.add('active');
-    e.stopPropagation();
-  } else if (!e.target.closest('#rowPopup')) {
-    closePopup();
-  }
-});
 
 async function init() {
   try {
