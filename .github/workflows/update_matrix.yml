@@ -84,8 +84,8 @@ jobs:
                   if kw <= mx: return f * UB
               return t[-1][1] * UB
 
-          COMM=11000
-          MNT=0.0227417*1.03
+          COMM = 11000
+          MNT  = 0.0227417 * 1.03
 
           def calc_all(p_cny, cc, kw=110):
               ovhd  = p_cny * 0.005
@@ -96,10 +96,10 @@ jobs:
                   return round((p_cny+ovhd+del_cny+COMM)*vtb_rate + rf + duty + clear + util)
               mongolia = (50000+900000)*MNT + 70000 + 15000
               return {
-                  'kyakhta':     city(2300, 40000+6000+20000+1500+1500) + round(mongolia),
-                  'zabaikalsk':  city(0,    30000+45000+10000),
-                  'ussuriysk':   city(0,    55000),
-                  'aleksandrov': city(14500,35000+45000+10000),
+                  'kyakhta':     city(2300,  40000+6000+20000+1500+1500) + round(mongolia),
+                  'zabaikalsk':  city(4000+1500+3500, 30000+45000+10000),
+                  'ussuriysk':   city(4000+500+2500,  55000),
+                  'aleksandrov': city(4000+14500,     35000+45000+10000),
               }
 
           SHEET_ID='1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo'
