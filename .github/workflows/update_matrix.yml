@@ -14,16 +14,19 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Fetch data and recalculate prices
+      - name: Fetch data and recalculate prices via Worker
         run: |
           python3 - << 'PYEOF'
-          import urllib.request, json, re
+          import urllib.request, json, re, time
+
+          WORKER_URL = 'https://abapp-calc.donditov.workers.dev/calc'
 
           def fetch_url(url):
               req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
               with urllib.request.urlopen(req, timeout=15) as r:
                   return r.read().decode('utf-8')
 
+          # ── Курсы валют ──────────────────────────────────────────────────
           vtb_rate = 11.8
           eur_rate = 92.0
           cny_cbr  = 11.5
@@ -43,6 +46,7 @@ jobs:
           except Exception as e:
               print(f'CBR error: {e}')
 
+          # ── Парсинг объёма ────────────────────────────────────────────────
           def parse_cc(s):
               if not s: return 1500
               s = str(s).lower()
@@ -52,63 +56,34 @@ jobs:
               if m: return int(m.group(1))
               return 1500
 
-          def duty_mid(cc):
-              if   cc >= 3000: r = 3.6
-              elif cc >  2300: r = 3.0
-              elif cc >  1800: r = 2.7
-              elif cc >  1500: r = 2.5
-              elif cc >  1000: r = 1.7
-              else:            r = 1.5
-              return r * cc * eur_rate
+          # ── Запрос к Worker ───────────────────────────────────────────────
+          def calc_via_worker(p_cny, cc):
+              payload = json.dumps({
+                  'pCny': p_cny, 'pMax': p_cny,
+                  'rVtb': vtb_rate, 'rCbr': cny_cbr, 'rEur': eur_rate,
+                  'etype': 'ice', 'age': 'mid',
+                  'cc': cc, 'kw': 110, 'emKw': 0,
+                  'comm': 11000,
+                  'deliveryManual': 4000,
+                  'deliveryIncluded': False, 'toBorderOnly': False,
+                  'distMan': 0, 'distErl': 0, 'distSui': 0, 'distHor': 0,
+              }).encode()
+              req = urllib.request.Request(WORKER_URL, data=payload, headers={
+                  'Content-Type': 'application/json',
+                  'Origin': 'https://abappcn.ru',
+              })
+              with urllib.request.urlopen(req, timeout=15) as r:
+                  return json.loads(r.read().decode('utf-8'))
 
-          def customs_clear(p):
-              if p<=200000: return 1231
-              if p<=450000: return 2462
-              if p<=1200000: return 4924
-              if p<=2700000: return 13541
-              if p<=4200000: return 18465
-              if p<=5500000: return 21344
-              if p<=10000000: return 49240
-              return 73860
-
-          UB=20000
-          ICE1=[(117.68,0.26),(139.75,28.44),(161.81,29.28),(183.88,30.12),(1e9,30.12)]
-          ICE2=[(117.68,0.26),(139.75,74.64),(161.81,79.2),(183.88,83.88),(205.94,91.92),(228.0,100.56),(250.07,110.16),(272.13,120.6),(294.2,132.0),(316.26,144.6),(338.33,158.4),(367.75,173.4),(1e9,189.84)]
-          ICE3=[(117.68,0.26),(139.75,172.8),(161.81,175.08),(183.88,177.6),(205.94,183.0),(228.0,188.52),(250.07,193.68),(272.13,199.08),(294.2,204.72),(316.26,210.48),(338.33,216.36),(367.75,222.36),(1e9,228.6)]
-          ICE4=[(117.68,197.81),(139.75,197.81),(161.81,200.04),(183.88,202.2),(205.94,204.36),(228.0,207.24),(250.07,212.4),(272.13,217.8),(294.2,224.28),(316.26,231.0),(338.33,237.96),(367.75,245.04),(1e9,252.48)]
-          ICE5=[(117.68,216.29),(139.75,216.29),(161.81,219.48),(183.88,222.84),(205.94,226.2),(228.0,231.36),(250.07,236.64),(272.13,249.6),(294.2,263.4),(316.26,277.92),(338.33,293.16),(367.75,309.36),(1e9,326.4)]
-
-          def utilshor(cc, kw):
-              t = ICE1 if cc<=1000 else ICE2 if cc<=2000 else ICE3 if cc<=3000 else ICE4 if cc<=3500 else ICE5
-              for mx, f in t:
-                  if kw <= mx: return f * UB
-              return t[-1][1] * UB
-
-          COMM = 11000
-          MNT  = 0.0227417 * 1.03
-
-          def calc_all(p_cny, cc, kw=110):
-              ovhd  = p_cny * 0.005
-              duty  = duty_mid(cc)
-              util  = utilshor(cc, kw)
-              clear = customs_clear(p_cny * vtb_rate)
-              def city(del_cny, rf):
-                  return round((p_cny+ovhd+del_cny+COMM)*vtb_rate + rf + duty + clear + util)
-              mongolia = (50000+900000)*MNT + 70000 + 15000
-              return {
-                  'kyakhta':     city(2300,  40000+6000+20000+1500+1500) + round(mongolia),
-                  'zabaikalsk':  city(4000+1500+3500, 30000+45000+10000),
-                  'ussuriysk':   city(4000+500+2500,  55000),
-                  'aleksandrov': city(4000+14500,     35000+45000+10000),
-              }
-
-          SHEET_ID='1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo'
+          # ── Google Sheets ─────────────────────────────────────────────────
+          SHEET_ID = '1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo'
           text = fetch_url(f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:json')
           match = re.search(r'google\.visualization\.Query\.setResponse\(([\s\S]*)\)', text)
           gdata = json.loads(match.group(1))
           rows  = gdata['table']['rows']
 
           records = []
+          errors  = 0
           for row in rows:
               if not row or not row.get('c'): continue
               c = row['c']
@@ -117,24 +92,59 @@ jobs:
               def num(i):
                   try: return float(c[i]['v']) if i<len(c) and c[i] and c[i].get('v') is not None else None
                   except: return None
-              country,brand = val(1),val(2)
+
+              country, brand = val(1), val(2)
               if not brand or not country: continue
               if 'страна' in country.lower() or 'бренд' in country.lower(): continue
-              yuan,engine = num(12),val(4)
-              cc = parse_cc(engine)
-              prices = calc_all(yuan,cc) if yuan and cc else {'kyakhta':num(8),'zabaikalsk':num(9),'ussuriysk':num(10),'aleksandrov':num(11)}
-              records.append({'country':country,'brand':brand,'model':val(3),'engine':engine,'drive':val(5),'trans':val(6),'body':val(7),'kyakhta':prices['kyakhta'],'zabaikalsk':prices['zabaikalsk'],'ussuriysk':prices['ussuriysk'],'aleksandrov':prices['aleksandrov'],'yuan':yuan})
 
-          print(f'Records: {len(records)}, VTB={vtb_rate}, EUR={eur_rate}')
+              yuan   = num(12)
+              engine = val(4)
+              cc     = parse_cc(engine)
 
+              kyakhta = zabaikalsk = ussuriysk = aleksandrov = None
+
+              if yuan and cc:
+                  try:
+                      res = calc_via_worker(yuan, cc)
+                      kyakhta     = res.get('kyakEvac')
+                      zabaikalsk  = res.get('zabaikalsk')
+                      ussuriysk   = res.get('ussuriysk')
+                      aleksandrov = res.get('alexandrov')
+                  except Exception as e:
+                      errors += 1
+                      if errors <= 3: print(f'Worker error for {brand} {val(3)}: {e}')
+                      # Fallback из таблицы
+                      kyakhta     = num(8)
+                      zabaikalsk  = num(9)
+                      ussuriysk   = num(10)
+                      aleksandrov = num(11)
+              else:
+                  kyakhta     = num(8)
+                  zabaikalsk  = num(9)
+                  ussuriysk   = num(10)
+                  aleksandrov = num(11)
+
+              records.append({
+                  'country': country, 'brand': brand, 'model': val(3),
+                  'engine': engine,   'drive': val(5), 'trans': val(6), 'body': val(7),
+                  'kyakhta':     kyakhta,
+                  'zabaikalsk':  zabaikalsk,
+                  'ussuriysk':   ussuriysk,
+                  'aleksandrov': aleksandrov,
+                  'yuan': yuan,
+              })
+
+          print(f'Records: {len(records)}, errors: {errors}, VTB={vtb_rate}, EUR={eur_rate}')
+
+          # ── Вшиваем в index.html ──────────────────────────────────────────
           data_json = json.dumps(records, ensure_ascii=False)
-          with open('index.html','r',encoding='utf-8') as f: html=f.read()
+          with open('index.html', 'r', encoding='utf-8') as f: html = f.read()
           new_block = f'const EMBEDDED_DATA = {data_json};\n// __EMBEDDED_DATA_END__'
           if '// __EMBEDDED_DATA_END__' in html:
               html = re.sub(r'const EMBEDDED_DATA = \[[\s\S]*?\];\n// __EMBEDDED_DATA_END__', new_block, html)
           else:
-              html = html.replace('const SHEET_ID =', new_block+'\nconst SHEET_ID =')
-          with open('index.html','w',encoding='utf-8') as f: f.write(html)
+              html = html.replace('const SHEET_ID =', new_block + '\nconst SHEET_ID =')
+          with open('index.html', 'w', encoding='utf-8') as f: f.write(html)
           print('Done!')
           PYEOF
 
