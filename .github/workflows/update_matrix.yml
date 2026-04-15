@@ -14,86 +14,128 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Fetch Google Sheets and embed data
+      - name: Fetch data and recalculate prices
         run: |
-          python3 << 'PYEOF'
-          import urllib.request
-          import json
-          import re
+          python3 - << 'PYEOF'
+          import urllib.request, json, re
 
-          SHEET_ID = '1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo'
-          url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:json'
+          def fetch_url(url):
+              req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+              with urllib.request.urlopen(req, timeout=15) as r:
+                  return r.read().decode('utf-8')
 
-          req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-          with urllib.request.urlopen(req, timeout=30) as r:
-              text = r.read().decode('utf-8')
+          vtb_rate = 11.8
+          eur_rate = 92.0
+          cny_cbr  = 11.5
 
+          try:
+              vtb = json.loads(fetch_url('https://raw.githubusercontent.com/abapptech/calculator/main/vtb_rate.json'))
+              if vtb.get('cny_sell'): vtb_rate = float(vtb['cny_sell'])
+              print(f'VTB: {vtb_rate}')
+          except Exception as e:
+              print(f'VTB error: {e}')
+
+          try:
+              cbr = json.loads(fetch_url('https://www.cbr-xml-daily.ru/daily_json.js'))
+              eur_rate = cbr['Valute']['EUR']['Value']
+              cny_cbr  = cbr['Valute']['CNY']['Value']
+              print(f'EUR: {eur_rate}, CNY CBR: {cny_cbr}')
+          except Exception as e:
+              print(f'CBR error: {e}')
+
+          def parse_cc(s):
+              if not s: return 1500
+              s = str(s).lower()
+              m = re.search(r'(\d+[.,]\d+)', s)
+              if m: return round(float(m.group(1).replace(',','.')) * 1000)
+              m = re.search(r'\b(\d{3,4})\b', s)
+              if m: return int(m.group(1))
+              return 1500
+
+          def duty_mid(cc):
+              if   cc >= 3000: r = 3.6
+              elif cc >  2300: r = 3.0
+              elif cc >  1800: r = 2.7
+              elif cc >  1500: r = 2.5
+              elif cc >  1000: r = 1.7
+              else:            r = 1.5
+              return r * cc * eur_rate
+
+          def customs_clear(p):
+              if p<=200000: return 1231
+              if p<=450000: return 2462
+              if p<=1200000: return 4924
+              if p<=2700000: return 13541
+              if p<=4200000: return 18465
+              if p<=5500000: return 21344
+              if p<=10000000: return 49240
+              return 73860
+
+          UB=20000
+          ICE1=[(117.68,0.26),(139.75,28.44),(161.81,29.28),(183.88,30.12),(1e9,30.12)]
+          ICE2=[(117.68,0.26),(139.75,74.64),(161.81,79.2),(183.88,83.88),(205.94,91.92),(228.0,100.56),(250.07,110.16),(272.13,120.6),(294.2,132.0),(316.26,144.6),(338.33,158.4),(367.75,173.4),(1e9,189.84)]
+          ICE3=[(117.68,0.26),(139.75,172.8),(161.81,175.08),(183.88,177.6),(205.94,183.0),(228.0,188.52),(250.07,193.68),(272.13,199.08),(294.2,204.72),(316.26,210.48),(338.33,216.36),(367.75,222.36),(1e9,228.6)]
+          ICE4=[(117.68,197.81),(139.75,197.81),(161.81,200.04),(183.88,202.2),(205.94,204.36),(228.0,207.24),(250.07,212.4),(272.13,217.8),(294.2,224.28),(316.26,231.0),(338.33,237.96),(367.75,245.04),(1e9,252.48)]
+          ICE5=[(117.68,216.29),(139.75,216.29),(161.81,219.48),(183.88,222.84),(205.94,226.2),(228.0,231.36),(250.07,236.64),(272.13,249.6),(294.2,263.4),(316.26,277.92),(338.33,293.16),(367.75,309.36),(1e9,326.4)]
+
+          def utilshor(cc, kw):
+              t = ICE1 if cc<=1000 else ICE2 if cc<=2000 else ICE3 if cc<=3000 else ICE4 if cc<=3500 else ICE5
+              for mx, f in t:
+                  if kw <= mx: return f * UB
+              return t[-1][1] * UB
+
+          COMM=11000
+          MNT=0.0227417*1.03
+
+          def calc_all(p_cny, cc, kw=110):
+              ovhd  = p_cny * 0.005
+              duty  = duty_mid(cc)
+              util  = utilshor(cc, kw)
+              clear = customs_clear(p_cny * vtb_rate)
+              def city(del_cny, rf):
+                  return round((p_cny+ovhd+del_cny+COMM)*vtb_rate + rf + duty + clear + util)
+              mongolia = (50000+900000)*MNT + 70000 + 15000
+              return {
+                  'kyakhta':     city(2300, 40000+6000+20000+1500+1500) + round(mongolia),
+                  'zabaikalsk':  city(0,    30000+45000+10000),
+                  'ussuriysk':   city(0,    55000),
+                  'aleksandrov': city(14500,35000+45000+10000),
+              }
+
+          SHEET_ID='1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo'
+          text = fetch_url(f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:json')
           match = re.search(r'google\.visualization\.Query\.setResponse\(([\s\S]*)\)', text)
-          if not match:
-              raise Exception('Cannot parse Google Sheets response')
-
           gdata = json.loads(match.group(1))
-          rows = gdata['table']['rows']
+          rows  = gdata['table']['rows']
 
           records = []
           for row in rows:
-              if not row or not row.get('c'):
-                  continue
+              if not row or not row.get('c'): continue
               c = row['c']
               def val(i):
-                  if i < len(c) and c[i] and c[i].get('v') is not None:
-                      return str(c[i]['v']).strip()
-                  return ''
+                  return str(c[i]['v']).strip() if i<len(c) and c[i] and c[i].get('v') is not None else ''
               def num(i):
-                  if i < len(c) and c[i] and c[i].get('v') is not None:
-                      try: return float(c[i]['v'])
-                      except: return None
-                  return None
+                  try: return float(c[i]['v']) if i<len(c) and c[i] and c[i].get('v') is not None else None
+                  except: return None
+              country,brand = val(1),val(2)
+              if not brand or not country: continue
+              if 'страна' in country.lower() or 'бренд' in country.lower(): continue
+              yuan,engine = num(12),val(4)
+              cc = parse_cc(engine)
+              prices = calc_all(yuan,cc) if yuan and cc else {'kyakhta':num(8),'zabaikalsk':num(9),'ussuriysk':num(10),'aleksandrov':num(11)}
+              records.append({'country':country,'brand':brand,'model':val(3),'engine':engine,'drive':val(5),'trans':val(6),'body':val(7),'kyakhta':prices['kyakhta'],'zabaikalsk':prices['zabaikalsk'],'ussuriysk':prices['ussuriysk'],'aleksandrov':prices['aleksandrov'],'yuan':yuan})
 
-              country = val(1)
-              brand   = val(2)
-              if not brand or not country:
-                  continue
-              if 'страна' in country.lower() or 'бренд' in country.lower():
-                  continue
-
-              records.append({
-                  'country':    country,
-                  'brand':      brand,
-                  'model':      val(3),
-                  'engine':     val(4),
-                  'drive':      val(5),
-                  'trans':      val(6),
-                  'body':       val(7),
-                  'kyakhta':    num(8),
-                  'zabaikalsk': num(9),
-                  'ussuriysk':  num(10),
-                  'aleksandrov':num(11),
-                  'yuan':       num(12),
-              })
+          print(f'Records: {len(records)}, VTB={vtb_rate}, EUR={eur_rate}')
 
           data_json = json.dumps(records, ensure_ascii=False)
-
-          with open('index.html', 'r', encoding='utf-8') as f:
-              html = f.read()
-
-          # Replace the embedded data marker
+          with open('index.html','r',encoding='utf-8') as f: html=f.read()
           new_block = f'const EMBEDDED_DATA = {data_json};\n// __EMBEDDED_DATA_END__'
           if '// __EMBEDDED_DATA_END__' in html:
-              html = re.sub(
-                  r'const EMBEDDED_DATA = \[[\s\S]*?\];\n// __EMBEDDED_DATA_END__',
-                  new_block, html
-              )
+              html = re.sub(r'const EMBEDDED_DATA = \[[\s\S]*?\];\n// __EMBEDDED_DATA_END__', new_block, html)
           else:
-              html = html.replace(
-                  'const SHEET_ID =',
-                  new_block + '\nconst SHEET_ID ='
-              )
-
-          with open('index.html', 'w', encoding='utf-8') as f:
-              f.write(html)
-
-          print(f'Done: {len(records)} records embedded')
+              html = html.replace('const SHEET_ID =', new_block+'\nconst SHEET_ID =')
+          with open('index.html','w',encoding='utf-8') as f: f.write(html)
+          print('Done!')
           PYEOF
 
       - name: Commit if changed
