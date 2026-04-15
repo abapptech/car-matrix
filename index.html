@@ -495,6 +495,215 @@ async function loadData() {
 }
 
 
+const COL_KEYS = ['country','brand','model','engine','drive','trans','body','kyakhta','zabaikalsk','ussuriysk','aleksandrov','yuan'];
+
+function gv(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function fmt(n) { return n != null ? Number(n).toLocaleString('ru-RU') + ' ₽' : '—'; }
+function fmtY(n) { return n != null ? Number(n).toLocaleString('ru-RU') + ' ¥' : '—'; }
+
+function populateSelect(id, values) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const current = el.value;
+  const unique = [...new Set(values.filter(Boolean))].sort();
+  const firstOpt = el.options[0];
+  el.innerHTML = '';
+  el.appendChild(firstOpt);
+  unique.forEach(v => {
+    const o = document.createElement('option');
+    o.value = o.textContent = v;
+    el.appendChild(o);
+  });
+  if (unique.includes(current)) el.value = current;
+}
+
+function setSort(col) {
+  if (sortCol === col) { sortDir *= -1; }
+  else { sortCol = col; sortDir = 1; }
+  applyFilters();
+}
+
+function renderStats(data) {
+  const el = document.getElementById('stats');
+  if (el) el.innerHTML = `<div class="stat"><div class="stat-label">Моделей</div><div class="stat-val">${data.length}</div></div>`;
+}
+
+function renderRow(d) {
+  return `<tr>
+    <td style="color:var(--muted);font-size:12px;">${d.country||'—'}</td>
+    <td><strong>${d.brand||'—'}</strong></td>
+    <td>${d.model||'—'}</td>
+    <td>${d.engine||'—'}</td>
+    <td>${d.drive||'—'}</td>
+    <td>${d.trans||'—'}</td>
+    <td><span class="badge">${d.body||'—'}</span></td>
+    <td class="price">${fmt(d.kyakhta)}</td>
+    <td class="price">${fmt(d.zabaikalsk)}</td>
+    <td class="price">${fmt(d.ussuriysk)}</td>
+    <td class="price">${fmt(d.aleksandrov)}</td>
+    <td class="price-yuan">${fmtY(d.yuan)}</td>
+  </tr>`;
+}
+
+function applyFilters() {
+  const q       = gv('search').toLowerCase();
+  const country = gv('fCountry'), brand = gv('fBrand'), body = gv('fBody');
+  const drive   = gv('fDrive'),   trans = gv('fTrans'), engine = gv('fEngine');
+  const model   = gv('fModel');
+
+  const kyakMin  = +document.getElementById('pKyakhtaMin').value||0;
+  const kyakMax  = +document.getElementById('pKyakhtaMax').value||Infinity;
+  const zabMin   = +document.getElementById('pZabaikalskMin').value||0;
+  const zabMax   = +document.getElementById('pZabaikalskMax').value||Infinity;
+  const ussMin   = +document.getElementById('pUssuriyskMin').value||0;
+  const ussMax   = +document.getElementById('pUssuriyskMax').value||Infinity;
+  const alexMin  = +document.getElementById('pAleksandrovMin').value||0;
+  const alexMax  = +document.getElementById('pAleksandrovMax').value||Infinity;
+  const yuanMin  = +document.getElementById('pYuanMin').value||0;
+  const yuanMax  = +document.getElementById('pYuanMax').value||Infinity;
+
+  let filtered = allData.filter(d => {
+    if (q && !(d.brand+' '+d.model).toLowerCase().includes(q)) return false;
+    if (country && d.country !== country) return false;
+    if (brand   && d.brand   !== brand)   return false;
+    if (model   && d.model   !== model)   return false;
+    if (body    && d.body    !== body)    return false;
+    if (drive   && d.drive   !== drive)   return false;
+    if (trans   && d.trans   !== trans)   return false;
+    if (engine  && d.engine  !== engine)  return false;
+    if (d.kyakhta    != null && (d.kyakhta    < kyakMin || d.kyakhta    > kyakMax)) return false;
+    if (d.zabaikalsk != null && (d.zabaikalsk < zabMin  || d.zabaikalsk > zabMax))  return false;
+    if (d.ussuriysk  != null && (d.ussuriysk  < ussMin  || d.ussuriysk  > ussMax))  return false;
+    if (d.aleksandrov!= null && (d.aleksandrov< alexMin || d.aleksandrov> alexMax)) return false;
+    if (d.yuan       != null && (d.yuan       < yuanMin || d.yuan       > yuanMax)) return false;
+    return true;
+  });
+
+  if (sortCol) {
+    filtered.sort((a, b) => {
+      const av = a[sortCol], bv = b[sortCol];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (av > bv ? 1 : av < bv ? -1 : 0) * sortDir;
+    });
+  }
+
+  const groups = {};
+  filtered.forEach(d => {
+    const b = d.body || '—';
+    if (!groups[b]) groups[b] = [];
+    groups[b].push(d);
+  });
+
+  const tbody = document.getElementById('tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty">Ничего не найдено</div></td></tr>';
+  } else {
+    tbody.innerHTML = Object.entries(groups).map(([body, rows]) =>
+      `<tr class="group-header"><td colspan="12">${body} (${rows.length})</td></tr>` +
+      rows.map(renderRow).join('')
+    ).join('');
+  }
+  renderStats(filtered);
+
+  const selCountry = gv('fCountry');
+  const brandsForCountry = selCountry
+    ? allData.filter(d => d.country === selCountry).map(d => d.brand)
+    : allData.map(d => d.brand);
+  populateSelect('fBrand', brandsForCountry);
+  if (brand) document.getElementById('fBrand').value = brand;
+}
+
+function resetFilters() {
+  ['search','fCountry','fBrand','fModel','fBody','fDrive','fTrans','fEngine'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['pKyakhtaMin','pKyakhtaMax','pZabaikalskMin','pZabaikalskMax',
+   'pUssuriyskMin','pUssuriyskMax','pAleksandrovMin','pAleksandrovMax',
+   'pYuanMin','pYuanMax'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  applyFilters();
+}
+
+function copyPopupText() {
+  const text = document.getElementById('popupCopyText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btnCopy');
+    btn.textContent = '✓ Скопировано';
+    setTimeout(() => { btn.textContent = '📋 Копировать'; }, 2000);
+  });
+}
+
+function closePopup() {
+  document.getElementById('rowPopup').classList.remove('active');
+}
+
+document.addEventListener('click', function(e) {
+  const tr = e.target.closest('tbody tr:not(.group-header)');
+  if (tr && !e.target.closest('a') && !e.target.closest('button')) {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length < 4) return;
+    const brand  = cells[1].textContent.trim();
+    const model  = cells[2].textContent.trim();
+    const engine = cells[3].textContent.trim();
+    const body   = cells[6] ? cells[6].textContent.trim() : '';
+    const photoQuery = encodeURIComponent(brand + ' ' + model + ' 3-5 лет из китая фото');
+    const msgDecoded = 'Здравствуйте! Хочу сделать заявку на автомобиль: ' + brand + ' ' + model +
+      (engine && engine !== '—' ? ', ' + engine : '') +
+      (body   && body   !== '—' ? ', ' + body   : '') + '.';
+    const msg = encodeURIComponent(msgDecoded);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    document.getElementById('popupCar').textContent = brand + ' ' + model;
+    document.getElementById('popupPhoto').href = 'https://www.google.com/search?tbm=isch&q=' + photoQuery;
+    document.getElementById('popupCopyText').textContent = msgDecoded;
+    document.getElementById('popupCopyBlock').style.display = 'block';
+    const vkHref = isMobile
+      ? 'https://vk.com/im?sel=-230371552'
+      : 'https://vk.com/im?sel=-230371552&text=' + msg;
+    document.getElementById('popupVk').href = vkHref;
+    document.getElementById('popupTg').href = 'https://t.me/abappconnect?text=' + msg;
+    const popup = document.getElementById('rowPopup');
+    const x = Math.min(e.clientX + 10, window.innerWidth - 300);
+    const y = Math.min(e.clientY + 10, window.innerHeight - 200);
+    popup.style.left = x + 'px';
+    popup.style.top  = y + 'px';
+    popup.classList.add('active');
+    e.stopPropagation();
+  } else if (!e.target.closest('#rowPopup')) {
+    closePopup();
+  }
+});
+
+(function buildThead() {
+  const cols = [
+    {key:'country',      label:'Страна'},
+    {key:'brand',        label:'Марка'},
+    {key:'model',        label:'Модель'},
+    {key:'engine',       label:'Объём'},
+    {key:'drive',        label:'Привод'},
+    {key:'trans',        label:'Трансмиссия'},
+    {key:'body',         label:'Кузов'},
+    {key:'kyakhta',      label:'Кяхта, ₽'},
+    {key:'zabaikalsk',   label:'Забайкальск, ₽'},
+    {key:'ussuriysk',    label:'Уссурийск, ₽'},
+    {key:'aleksandrov',  label:'Александров, ₽'},
+    {key:'yuan',         label:'Цена в КНР, ¥'},
+  ];
+  const thead = document.getElementById('thead');
+  if (thead) thead.innerHTML = '<tr>' + cols.map(c =>
+    '<th onclick="setSort('' + c.key + '')" style="cursor:pointer;user-select:none">' + c.label + '</th>'
+  ).join('') + '</tr>';
+})();
+
+
 async function init() {
   try {
     await loadRates();
