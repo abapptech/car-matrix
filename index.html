@@ -475,8 +475,7 @@ async function loadData() {
       kyakhta: c.kyakhta, zabaikalsk: c.zabaikalsk,
       ussuriysk: c.ussuriysk, aleksandrov: c.aleksandrov, yuan: c.yuan });
   }
-  applyFilters();
-  populateSelects();
+  return allData;
 }
 
 async function init() {
