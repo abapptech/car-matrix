@@ -1,0 +1,105 @@
+name: Update Matrix Data
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Fetch Google Sheets and embed data
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request
+          import json
+          import re
+
+          SHEET_ID = '1OCAUO9TqknVBZMmyUB9BatgX9m6ydwBXa0TIK_1eGPo'
+          url = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:json'
+
+          req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              text = r.read().decode('utf-8')
+
+          match = re.search(r'google\.visualization\.Query\.setResponse\(([\s\S]*)\)', text)
+          if not match:
+              raise Exception('Cannot parse Google Sheets response')
+
+          gdata = json.loads(match.group(1))
+          rows = gdata['table']['rows']
+
+          records = []
+          for row in rows:
+              if not row or not row.get('c'):
+                  continue
+              c = row['c']
+              def val(i):
+                  if i < len(c) and c[i] and c[i].get('v') is not None:
+                      return str(c[i]['v']).strip()
+                  return ''
+              def num(i):
+                  if i < len(c) and c[i] and c[i].get('v') is not None:
+                      try: return float(c[i]['v'])
+                      except: return None
+                  return None
+
+              country = val(1)
+              brand   = val(2)
+              if not brand or not country:
+                  continue
+              if 'страна' in country.lower() or 'бренд' in country.lower():
+                  continue
+
+              records.append({
+                  'country':    country,
+                  'brand':      brand,
+                  'model':      val(3),
+                  'engine':     val(4),
+                  'drive':      val(5),
+                  'trans':      val(6),
+                  'body':       val(7),
+                  'kyakhta':    num(8),
+                  'zabaikalsk': num(9),
+                  'ussuriysk':  num(10),
+                  'aleksandrov':num(11),
+                  'yuan':       num(12),
+              })
+
+          data_json = json.dumps(records, ensure_ascii=False)
+
+          with open('index.html', 'r', encoding='utf-8') as f:
+              html = f.read()
+
+          # Replace the embedded data marker
+          new_block = f'const EMBEDDED_DATA = {data_json};\n// __EMBEDDED_DATA_END__'
+          if '// __EMBEDDED_DATA_END__' in html:
+              html = re.sub(
+                  r'const EMBEDDED_DATA = \[[\s\S]*?\];\n// __EMBEDDED_DATA_END__',
+                  new_block, html
+              )
+          else:
+              html = html.replace(
+                  'const SHEET_ID =',
+                  new_block + '\nconst SHEET_ID ='
+              )
+
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(html)
+
+          print(f'Done: {len(records)} records embedded')
+          PYEOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet || git commit -m "chore: update matrix data [skip ci]"
+          git push
