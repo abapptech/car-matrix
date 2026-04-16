@@ -139,36 +139,10 @@
   .pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(200,240,74,0.08); border: 1px solid rgba(200,240,74,0.2); border-radius: 99px; padding: 3px 10px; font-family: var(--font-mono); font-size: 10px; color: var(--accent); margin-left: 1rem; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  /* Стили для раскрывающихся фильтров */
-  .filters-details summary {
-    display: none; /* скрыто на десктопе */
-  }
-  .filters-details { display: block; }
-
   @media (max-width: 600px) {
-    .filters-details summary {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 9px 14px;
-      background: var(--surface);
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      cursor: pointer;
-      margin-bottom: 8px;
-      list-style: none;
-      user-select: none;
-    }
-    .filters-details summary::-webkit-details-marker { display: none; }
-    .filters-details:not([open]) > *:not(summary) { display: none; }
-  }
-
-  @media (max-width: 600px) {
-    .main { padding: 0.75rem; }
+    .main { padding: 0.75rem; display: flex; flex-direction: column; }
+    #filters-wrap { order: 2; margin-top: 12px; }
+    .table-wrap { order: 1; }
     header { padding: 1rem; gap: 1rem; }
     header h1 { font-size: 16px; }
 
@@ -304,8 +278,7 @@
       ✉️ Оставить заявку
     </button>
   </div>
-  <details id="filters-wrap" class="filters-details">
-  <summary id="filters-toggle">🔍 Фильтры</summary>
+  <div id="filters-wrap">
   <div class="filters">
     <input type="text" id="search" placeholder="Поиск по марке или модели...">
     <select id="fCountry"><option value="">Все страны</option></select>
@@ -397,7 +370,7 @@
     </div>
   </div>
 
-  </details><!-- /filters-wrap -->
+  </div><!-- /filters-wrap -->
   <div class="table-wrap">
     <table>
       <thead id="thead"></thead>
