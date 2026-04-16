@@ -761,7 +761,7 @@ document.addEventListener('click', function(e) {
     }
     popup.classList.add('active');
     e.stopPropagation();
-  } else if (!e.target.closest('#rowPopup') && !e.target.closest('#contact-modal')) {
+  } else if (!e.target.closest('#rowPopup')) {
     closePopup();
   }
 });
@@ -848,11 +848,13 @@ init();
     const msg = copyText ? copyText.textContent : 'Здравствуйте! Интересует авто из Китая под ключ. Прошу связаться со мной.';
     document.getElementById('rowPopup').classList.remove('active');
     window._modalJustOpened = true;
-    setTimeout(() => { window._modalJustOpened = false; }, 600);
-    const modal = document.getElementById('contact-modal');
-    modal.style.display = 'flex';
-    document.getElementById('cf-message').value = msg;
-    generateMathCaptcha();
+    setTimeout(() => { window._modalJustOpened = false; }, 800);
+    setTimeout(() => {
+      const modal = document.getElementById('contact-modal');
+      modal.style.display = 'flex';
+      document.getElementById('cf-message').value = msg;
+      generateMathCaptcha();
+    }, 100);
   }
 
   function openContactModalWithMsg() {
@@ -940,18 +942,6 @@ init();
   document.getElementById('contact-modal').addEventListener('click', function(e) {
     if (e.target === this && !window._modalJustOpened) closeContactModal();
   });
-
-  // Email кнопка в попапе — используем touchend для мобильных
-  const popupEmailBtn = document.getElementById('popupEmail');
-  if (popupEmailBtn) {
-    const handlePopupEmail = function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openContactModalFromPopup();
-    };
-    popupEmailBtn.addEventListener('touchend', handlePopupEmail, { passive: false });
-    popupEmailBtn.addEventListener('click', handlePopupEmail);
-  }
 </script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "4428712d099b4cfd89406499fd34b70e"}'></script><div class="row-popup" id="rowPopup">
   <span class="row-popup-close" onclick="closePopup()">✕</span>
@@ -978,7 +968,7 @@ init();
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
       Telegram
     </a>
-    <button id="popupEmail" class="btn-tg" style="border:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Unbounded',sans-serif;background:#1a2a3a;color:var(--accent);border:1px solid #2a4a5a">
+    <button id="popupEmail" onclick="openContactModalFromPopup()" class="btn-tg" style="border:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Unbounded',sans-serif;background:#1a2a3a;color:var(--accent);border:1px solid #2a4a5a">
       ✉️ Email
     </button>
   </div>
