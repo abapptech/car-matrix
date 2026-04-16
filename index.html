@@ -700,7 +700,18 @@ async function init() {
       applyFilters();
     });
 
-    ['search','fCountry','fModel','fBody','fDrive','fTrans','fEngine'].forEach(id => {
+    document.getElementById('fCountry').addEventListener('change', () => {
+      const country = gv('fCountry');
+      const brands = country
+        ? allData.filter(d => d.country === country).map(d => d.brand)
+        : allData.map(d => d.brand);
+      populateSelect('fBrand', brands);
+      document.getElementById('fBrand').value = '';
+      document.getElementById('fModel').value = '';
+      applyFilters();
+    });
+
+    ['search','fModel','fBody','fDrive','fTrans','fEngine'].forEach(id => {
       document.getElementById(id).addEventListener(id==='search'?'input':'change', applyFilters);
     });
     applyFilters();
@@ -780,7 +791,8 @@ init();
       btn.disabled = false;
       btn.textContent = 'Отправить заявку';
     }).catch((err) => {
-      showCfError('Ошибка отправки. Попробуйте ещё раз.');
+      console.error('EmailJS error:', err);
+      showCfError('Ошибка отправки: ' + (err.text || err.message || JSON.stringify(err)));
       btn.disabled = false;
       btn.textContent = 'Отправить заявку';
     });
