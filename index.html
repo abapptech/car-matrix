@@ -965,7 +965,7 @@ init();
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
       Telegram
     </a>
-    <button id="popupEmail" onclick="openContactModalFromPopup()" class="btn-tg" style="border:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Unbounded',sans-serif;background:#1a2a3a;color:var(--accent);border:1px solid #2a4a5a">
+    <button id="popupEmail" onclick="event.stopPropagation();openContactModalFromPopup()" class="btn-tg" style="border:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Unbounded',sans-serif;background:#1a2a3a;color:var(--accent);border:1px solid #2a4a5a">
       ✉️ Email
     </button>
   </div>
