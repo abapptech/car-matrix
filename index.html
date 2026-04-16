@@ -847,12 +847,12 @@ init();
     const copyText = document.getElementById('popupCopyText');
     const msg = copyText ? copyText.textContent : 'Здравствуйте! Интересует авто из Китая под ключ. Прошу связаться со мной.';
     document.getElementById('rowPopup').classList.remove('active');
-    setTimeout(() => {
-      const modal = document.getElementById('contact-modal');
-      modal.style.display = 'flex';
-      document.getElementById('cf-message').value = msg;
-      generateMathCaptcha();
-    }, 300);
+    window._modalJustOpened = true;
+    setTimeout(() => { window._modalJustOpened = false; }, 600);
+    const modal = document.getElementById('contact-modal');
+    modal.style.display = 'flex';
+    document.getElementById('cf-message').value = msg;
+    generateMathCaptcha();
   }
 
   function openContactModalWithMsg() {
@@ -938,7 +938,7 @@ init();
 
   // Закрытие по клику на фон
   document.getElementById('contact-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeContactModal();
+    if (e.target === this && !window._modalJustOpened) closeContactModal();
   });
 </script>
 <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "4428712d099b4cfd89406499fd34b70e"}'></script><div class="row-popup" id="rowPopup">
