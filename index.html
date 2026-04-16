@@ -944,11 +944,11 @@ init();
   // Email кнопка в попапе — используем touchend для мобильных
   const popupEmailBtn = document.getElementById('popupEmail');
   if (popupEmailBtn) {
-    function handlePopupEmail(e) {
+    const handlePopupEmail = function(e) {
       e.preventDefault();
       e.stopPropagation();
       openContactModalFromPopup();
-    }
+    };
     popupEmailBtn.addEventListener('touchend', handlePopupEmail, { passive: false });
     popupEmailBtn.addEventListener('click', handlePopupEmail);
   }
