@@ -169,6 +169,9 @@
     /* Фильтры скрыты по умолчанию на мобиле */
     #filters-wrap { display: none; }
     #filters-toggle { display: block !important; }
+    #mobile-top-bar { display: flex !important; }
+    /* Скрываем десктопный блок со статистикой и кнопкой на мобиле */
+    #desktop-stats-bar { display: none !important; }
   }
 </style>
 <!-- Yandex.Metrika counter -->
@@ -260,6 +263,19 @@
 </header>
 
 <div class="main">
+  <!-- Мобильная панель: счётчик + кнопка заявки -->
+  <div id="mobile-top-bar" style="display:none;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+    <div class="stat" style="min-width:auto;padding:8px 14px;">
+      <div class="stat-label">Моделей</div>
+      <div class="stat-val" id="mobile-count">—</div>
+    </div>
+    <button onclick="openContactModal()"
+      style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);color:#0d0f14;border:none;border-radius:8px;padding:9px 14px;font-family:'Unbounded',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"
+      onmouseover="this.style.background='#ffd84d'" onmouseout="this.style.background='var(--accent)'">
+      ✉️ Оставить заявку
+    </button>
+  </div>
+
   <button id="filters-toggle" onclick="toggleFilters()" style="display:none;width:100%;padding:9px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:12px;cursor:pointer;margin-bottom:8px;text-align:left;">
     🔍 Фильтры ▼
   </button>
@@ -294,7 +310,7 @@
   <div style="margin-bottom:12px;padding:10px 14px;background:rgba(200,240,74,0.05);border:1px solid rgba(200,240,74,0.15);border-radius:8px;font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.6;">
     ⚠ Цены по городам доставки в РФ приведены справочно как средние стоимости автомобилей под ключ в РФ. Фактическая стоимость может отличаться в зависимости от комплектации, курса валют и условий поставки.
   </div>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+  <div id="desktop-stats-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
     <div class="stats" id="stats"></div>
     <button onclick="openContactModal()"
       style="display:flex;align-items:center;gap:7px;background:var(--accent);color:#0d0f14;border:none;border-radius:8px;padding:8px 18px;font-family:'Unbounded',sans-serif;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:all .2s;white-space:nowrap"
