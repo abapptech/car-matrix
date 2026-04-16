@@ -708,6 +708,8 @@ function renderStats(data) {
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="stat-label">Моделей</div><div class="stat-val">${data.length}</div></div>
   `;
+  const mob = document.getElementById('mobile-count');
+  if (mob) mob.textContent = data.length;
 }
 
 function setSort(col) { sortDir = sortCol===col ? sortDir*-1 : 1; sortCol=col; applyFilters(); }
