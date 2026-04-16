@@ -825,10 +825,9 @@ async function init() {
 
     document.getElementById('fCountry').addEventListener('change', () => {
       const country = gv('fCountry');
-      const brands = country
-        ? allData.filter(d => d.country === country).map(d => d.brand)
-        : allData.map(d => d.brand);
-      populateSelect('fBrand', brands);
+      const filtered = country ? allData.filter(d => d.country === country) : allData;
+      populateSelect('fBrand', filtered.map(d => d.brand));
+      populateSelect('fModel', filtered.map(d => d.model));
       document.getElementById('fBrand').value = '';
       document.getElementById('fModel').value = '';
       applyFilters();
