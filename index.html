@@ -113,7 +113,7 @@
   .price { font-family: var(--font-mono); font-size: 12px; color: var(--accent2); white-space: nowrap; }
   tr { cursor:pointer; }
   tr:hover td { background: var(--surface2); }
-  .row-popup { display:none; position:fixed; z-index:9000; background:var(--surface2); border:1px solid var(--border2); border-radius:10px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:260px; }
+  .row-popup { display:none; position:fixed; z-index:9000; background:var(--surface2); border:1px solid var(--border2); border-radius:10px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:260px; max-height:90vh; overflow-y:auto; }
   .row-popup.active { display:block; }
   .row-popup-title { font-family:var(--font-mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px; }
   .row-popup-car { font-family:var(--font-head); font-size:14px; color:var(--text); margin-bottom:14px; }
@@ -768,11 +768,13 @@ document.addEventListener('click', function(e) {
     if (isMob) {
       popup.style.left = '8px';
       popup.style.right = '8px';
-      popup.style.top = 'auto';
       popup.style.bottom = '8px';
+      popup.style.top = 'auto';
       popup.style.width = 'auto';
       popup.style.maxWidth = 'none';
       popup.style.minWidth = 'auto';
+      popup.style.maxHeight = (window.innerHeight - 80) + 'px';
+      popup.style.overflowY = 'auto';
     } else {
       popup.style.right = '';
       popup.style.bottom = '';
