@@ -439,32 +439,206 @@ function parseCC(s) {
   return 1500;
 }
 
-async function calcPrices(pCny, cc, kw) {
+function lookElectric(kw, ci) {
+  for (const r of EL) if (kw <= r.mx) return (ci ? r.f : r.d) * UB;
+  return 182.4 * UB;
+}
+function lookICE(cc, kw, ci) {
+  const t = cc<=1000?ICE1:cc<=2000?ICE2:cc<=3000?ICE3:cc<=3500?ICE4:ICE5;
+  for (const r of t) if (kw <= r.mx) return (ci ? r.f : r.d) * UB;
+  const last = t[t.length-1];
+  return (ci ? last.f : last.d) * UB;
+}
+
+function akcizRate(hp) {
+  if (hp > 500) return 1742;
+  if (hp > 400) return 1685;
+  if (hp > 300) return 1628;
+  if (hp > 200) return 955;
+  if (hp > 150) return 583;
+  if (hp > 90)  return 61;
+  return 0;
+}
+
+function customsDuty(etype, age, pMaxCny, cc, emHp, rateVtb, rateEur, kw=0, rateCnyCbr=0) {
+  const rateCny = rateCnyCbr || rateVtb;
+  const priceEur = pMaxCny * rateCny / rateEur;
+  if (etype === 'electric') {
+    const a = akcizRate(emHp);
+    return (pMaxCny*0.15*rateCny)*1.2 + (a*emHp)*1.2 + (pMaxCny*rateCny)*0.2;
+  }
+  return dutyICE(age, pMaxCny, cc, priceEur, rateEur, rateCny);
+}
+
+function dutyICE(age, pMaxCny, cc, priceEur, rateEur, rateCny) {
+  if (age === 'new') {
+    const pct = priceEur > 8500 ? 0.48 : 0.54;
+    const dutyPct = pct * pMaxCny * rateCny;
+    let cubicR;
+    if      (priceEur === 0)     cubicR = 0;
+    else if (priceEur <= 8500)   cubicR = 2.5;
+    else if (priceEur <= 16700)  cubicR = 3.5;
+    else if (priceEur <= 42300)  cubicR = 5.5;
+    else if (priceEur <= 84500)  cubicR = 7.5;
+    else if (priceEur <= 169000) cubicR = 15;
+    else                         cubicR = 20;
+    return Math.max(dutyPct, cubicR * cc * rateEur);
+  }
+  if (age === 'mid') {
+    let r;
+    if      (cc >= 3000) r = 3.6;
+    else if (cc > 2300)  r = 3;
+    else if (cc > 1800)  r = 2.7;
+    else if (cc > 1500)  r = 2.5;
+    else if (cc > 1000)  r = 1.7;
+    else                 r = 1.5;
+    return r * cc * rateEur;
+  }
+  let r;
+  if      (cc > 3000) r = 5.7;
+  else if (cc > 2300) r = 5;
+  else if (cc > 1800) r = 4.8;
+  else if (cc > 1500) r = 3.5;
+  else if (cc > 1000) r = 3.2;
+  else                r = 3;
+  return r * cc * rateEur;
+}
+
+function customsClear(priceCny, rateVtb) {
+  const r = priceCny * rateVtb;
+  if (r <= 200000)   return 1231;
+  if (r <= 450000)   return 2462;
+  if (r <= 1200000)  return 4924;
+  if (r <= 2700000)  return 13541;
+  if (r <= 4200000)  return 18465;
+  if (r <= 5500000)  return 21344;
+  if (r <= 10000000) return 49240;
+  return 73860;
+}
+
+function utilshor(etype, cc, kw, emKw, age) {
+  const isNew = age === 'new';
+  const ci = isNew ? 0 : 1;
+  if (etype === 'electric') return lookElectric(emKw || kw, ci);
+  return lookICE(cc, kw, ci);
+}
+
+function calculate(p) {
+  const {
+    pCny, pMax, rVtb, rCbr, rEur,
+    etype, age, cc, kw, emKw,
+    comm, deliveryManual, deliveryIncluded, toBorderOnly,
+    distMan, distErl, distSui, distHor,
+  } = p;
+
+  const pTax    = Math.max(pCny, pMax || pCny);
+  const ovhdCny = age === 'new' ? 0 : pCny * 0.005;
+  const expDocCny = 0;
+  const emHp    = emKw * KW2HP;
+  const rMnt    = 0.0227417 * 1.03;
+
+  const duty      = customsDuty(etype, age, pTax, cc, emHp, rVtb, rEur, kw, rCbr);
+  const clear     = customsClear(pCny, rVtb);
+  const util      = utilshor(etype, cc, kw, emKw, age);
+  const expertiza = age === 'new' ? 4500 : 1500;
+
+  const showChinaDelivery  = !deliveryIncluded;
+  const showBrokerAndBorder = !deliveryIncluded && !toBorderOnly;
+  const showRF  = !toBorderOnly;
+  const showTax = !toBorderOnly;
+
+  const dManual = deliveryManual > 0;
+  const d = {
+    alex:    distHor ? distHor*1.5+800+14500 : 14500,
+    alex_cn: distHor ? distHor*1.5+800 : 0,
+    man:     distMan ? distMan*1.5+800 : 0,
+    erl:     distErl ? distErl*1.5+800 : 0,
+    sui:     distSui ? distSui*1.5+800 : 0,
+  };
+
+  const alexDelivCNAdj = showChinaDelivery && age!=='new' ? (dManual ? deliveryManual : d.alex_cn) : 0;
+  const alexBrokerAdj  = showBrokerAndBorder && age!=='new' ? 14500 : 0;
+  const alexCNY = pCny + ovhdCny + alexDelivCNAdj + alexBrokerAdj + comm;
+  const alexRUB = (showRF ? 35000+45000+10000 : 0) + (showTax ? duty+clear+util : 0);
+  const alexandrov = alexCNY * rVtb + alexRUB;
+
+  const manDelivCny = dManual ? deliveryManual : d.man;
+  const zabDelivAdj  = showChinaDelivery && age!=='new' ? manDelivCny : 0;
+  const zabBrokerAdj = showBrokerAndBorder && age!=='new' ? 1500+3500 : 0;
+  const zabCNY = pCny + ovhdCny + zabDelivAdj + zabBrokerAdj + comm;
+  const zabRUB = (showRF ? 30000+45000+10000 : 0) + (showTax ? duty+clear+util : 0);
+  const zabaikalsk = zabCNY * rVtb + zabRUB;
+
+  const suiDelivCny = dManual ? deliveryManual : d.sui;
+  const ussDelivAdj  = showChinaDelivery && age!=='new' ? suiDelivCny : 0;
+  const ussBrokerAdj = showBrokerAndBorder && age!=='new' ? 500+2500 : 0;
+  const ussCNY = pCny + ovhdCny + ussDelivAdj + ussBrokerAdj + comm;
+  const ussRUB = (showRF ? 55000 : 0) + (showTax ? duty+clear+util : 0);
+  const ussuriysk = ussCNY * rVtb + ussRUB;
+
+  const erlDelivCny   = dManual ? deliveryManual : d.erl;
+  const kyakErlAdj    = showChinaDelivery && age!=='new' ? erlDelivCny : 0;
+  const kyakBrokerAdj = showBrokerAndBorder && age!=='new' ? 2300 : 0;
+  const bKBase = pCny + ovhdCny + expDocCny + kyakErlAdj + kyakBrokerAdj + comm;
+  const cKBase = (showRF ? 15000+40000+6000+20000+expertiza+1500 : 0) + (showTax ? duty+clear+util : 0);
+  const dSelf  = 50000+250000+200000+80000+450000+450000;
+  const kyakSelf = (bKBase+1200)*rVtb + (cKBase+5000) + dSelf*rMnt;
+  const kyakEvac = bKBase*rVtb + cKBase + (50000+900000)*rMnt + 70000;
+
+  const stoimostCny  = (age === 'new' ? pTax : pCny) + 1800;
+  const alexChinaCny = ovhdCny + alexDelivCNAdj + alexBrokerAdj;
+  const zabChinaCny  = ovhdCny + zabDelivAdj + zabBrokerAdj;
+  const ussChinaCny  = ovhdCny + ussDelivAdj + ussBrokerAdj;
+  const kyakChinaCny = ovhdCny + kyakErlAdj + kyakBrokerAdj;
+
+  return {
+    zabaikalsk:  Math.round(zabaikalsk),
+    alexandrov:  Math.round(alexandrov),
+    ussuriysk:   Math.round(ussuriysk),
+    kyakSelf:    Math.round(kyakSelf),
+    kyakEvac:    Math.round(kyakEvac),
+    duty:        Math.round(duty),
+    clear:       Math.round(clear),
+    util:        Math.round(util),
+    vtbCommZab:  Math.round((stoimostCny + zabChinaCny)  * rVtb * 0.025),
+    vtbCommAlex: Math.round((stoimostCny + alexChinaCny) * rVtb * 0.025),
+    vtbCommUss:  Math.round((stoimostCny + ussChinaCny)  * rVtb * 0.025),
+    vtbCommKyak: Math.round((stoimostCny + kyakChinaCny) * rVtb * 0.025),
+    ovhdCny:      Math.round(ovhdCny),
+    expertiza,
+    manDelivCny:  Math.round(manDelivCny),
+    erlDelivCny:  Math.round(erlDelivCny),
+    suiDelivCny:  Math.round(suiDelivCny),
+    alexCnDelivCny: Math.round(dManual ? deliveryManual : d.alex_cn),
+    showChinaDelivery, showBrokerAndBorder, showRF, showTax,
+    rMnt,
+  };
+}
+
+function calcPrices(pCny, cc, kw) {
+  if (!pCny) return null;
+  const p = {
+    pCny, pMax: pCny,
+    rVtb: vtbRate, rCbr: cnyCbrRate, rEur: eurRate,
+    etype: 'ice', age: 'mid',
+    cc: cc || 1500, kw: kw || 110, emKw: 0,
+    comm: 11000, deliveryManual: 4000,
+    deliveryIncluded: false, toBorderOnly: false,
+    distMan: 0, distErl: 0, distSui: 0, distHor: 0,
+  };
   try {
-    const res = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Origin': 'https://abappcn.ru' },
-      body: JSON.stringify({
-        pCny, pMax: pCny,
-        rVtb: vtbRate, rCbr: cnyCbrRate, rEur: eurRate,
-        etype: 'ice', age: 'mid',
-        cc, kw, emKw: 0,
-        comm: 11000,
-        deliveryManual: 4000, deliveryIncluded: false, toBorderOnly: false,
-        distMan: 0, distErl: 0, distSui: 0, distHor: 0,
-      }),
-    });
-    const d = await res.json();
+    const r = calculate(p);
     return {
-      zabaikalsk:  d.zabaikalsk,
-      aleksandrov: d.alexandrov,
-      ussuriysk:   d.ussuriysk,
-      kyakhta:     d.kyakEvac,
+      kyakhta:     Math.round(r.kyakEvac),
+      zabaikalsk:  Math.round(r.zabaikalsk),
+      ussuriysk:   Math.round(r.ussuriysk),
+      aleksandrov: Math.round(r.alexandrov),
     };
   } catch(e) {
     return null;
   }
 }
+
 
 async function loadData() {
   // ── Шаг 1: Загрузка из Google Sheets ──
@@ -492,37 +666,19 @@ async function loadData() {
   allData = result;
   applyFilters();
 
-  // ── Шаг 3: Один батч-запрос к Worker для всех цен ──
+  // ── Шаг 3: Локальный расчёт цен (без внешних запросов) ──
   const toCalc = result.filter(d => d.yuan);
   if (toCalc.length > 0) {
-    try {
-      const batchParams = toCalc.map(d => ({
-        pCny: d.yuan, pMax: d.yuan,
-        rVtb: vtbRate, rCbr: cnyCbrRate, rEur: eurRate,
-        etype: 'ice', age: 'mid',
-        cc: parseCC(d.engine), kw: 110, emKw: 0,
-        comm: 11000, deliveryManual: 4000,
-        deliveryIncluded: false, toBorderOnly: false,
-        distMan: 0, distErl: 0, distSui: 0, distHor: 0,
-      }));
-      const batchRes = await fetch(WORKER_URL.replace('/calc', '/calc-batch'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Origin': 'https://abappcn.ru' },
-        body: JSON.stringify(batchParams),
-      });
-      const prices = await batchRes.json();
-      toCalc.forEach((d, i) => {
-        if (prices[i] && !prices[i].error) {
-          d.kyakhta     = prices[i].kyakEvac;
-          d.zabaikalsk  = prices[i].zabaikalsk;
-          d.ussuriysk   = prices[i].ussuriysk;
-          d.aleksandrov = prices[i].alexandrov;
-        }
-      });
-      applyFilters();
-    } catch(e) {
-      console.warn('Batch calc failed:', e);
-    }
+    toCalc.forEach(d => {
+      const prices = calcPrices(d.yuan, parseCC(d.engine), 110);
+      if (prices) {
+        d.kyakhta     = prices.kyakhta;
+        d.zabaikalsk  = prices.zabaikalsk;
+        d.ussuriysk   = prices.ussuriysk;
+        d.aleksandrov = prices.aleksandrov;
+      }
+    });
+    applyFilters();
   }
   return result;
 }
