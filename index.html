@@ -317,7 +317,10 @@
           <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.06em;text-transform:uppercase">Текст обращения</label>
           <textarea id="cf-message" placeholder="Интересует авто, марка, модель..." rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;padding:9px 12px;outline:none;box-sizing:border-box;resize:vertical"></textarea>
         </div>
-        <div class="g-recaptcha" data-sitekey="6LeDMrosAAAAEpxMn2lkmcevTkvf66bGbVbSWGN" style="margin-bottom:12px;transform:scale(0.95);transform-origin:0 0;"></div>
+        <div id="cf-math" style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <span id="cf-math-question" style="font-family:var(--font-mono);font-size:13px;color:var(--text);white-space:nowrap;"></span>
+          <input id="cf-math-answer" type="number" placeholder="?" style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:14px;padding:6px 10px;outline:none;">
+        </div>
         <button onclick="submitContactForm()" id="cf-submit"
           style="width:100%;background:var(--accent);color:#0d0f14;border:none;border-radius:10px;padding:13px;font-family:'Unbounded',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.05em;transition:all .2s">
           Отправить заявку
@@ -761,7 +764,6 @@ init();
   </div>
 </div>
 <!-- EmailJS -->
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
   emailjs.init({ publicKey: 'BACkAe-KmI85-9LoT', privateKey: '1Ga5EuZUpQDpGpsUF21sN' });
@@ -769,6 +771,15 @@ init();
   function openContactModal() {
     document.getElementById('contact-modal').style.display = 'flex';
     document.getElementById('cf-message').value = 'Здравствуйте! Интересует авто из Китая под ключ. Прошу связаться со мной.';
+    generateMathCaptcha();
+  }
+
+  function generateMathCaptcha() {
+    const a = Math.floor(Math.random() * 10) + 1;
+    const b = Math.floor(Math.random() * 10) + 1;
+    window._mathAnswer = a + b;
+    document.getElementById('cf-math-question').textContent = 'Сколько будет ' + a + ' + ' + b + ' =';
+    document.getElementById('cf-math-answer').value = '';
   }
 
   function formatPhone(input) {
@@ -792,7 +803,7 @@ init();
     document.getElementById('cf-phone').value = '';
     document.getElementById('cf-message').value = '';
     document.getElementById('cf-error').style.display = 'none';
-    if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+    if (document.getElementById('cf-math')) generateMathCaptcha();
   }
 
   function submitContactForm() {
@@ -802,8 +813,8 @@ init();
     const errEl = document.getElementById('cf-error');
     const btn = document.getElementById('cf-submit');
 
-    const captcha = grecaptcha.getResponse();
-    if (!captcha) { showCfError('Подтвердите что вы не робот'); return; }
+    const mathAnswer = parseInt(document.getElementById('cf-math-answer').value);
+    if (isNaN(mathAnswer) || mathAnswer !== window._mathAnswer) { showCfError('Неверный ответ на проверку'); return; }
     if (!name) { showCfError('Введите имя'); return; }
     const digits = phone.replace(/\D/g, '');
     if (!phone || digits.length < 11) { showCfError('Введите полный номер телефона: +7 000 000 00 00'); return; }
@@ -817,7 +828,7 @@ init();
       phone: phone,
       message: message || '—',
     }).then(() => {
-      grecaptcha.reset();
+      generateMathCaptcha();
       document.getElementById('contact-form-wrap').style.display = 'none';
       document.getElementById('contact-success').style.display = 'block';
       btn.disabled = false;
