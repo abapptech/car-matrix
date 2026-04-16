@@ -170,8 +170,6 @@
     td:nth-child(8) .price, td:nth-child(8) { font-size: 13px; }
 
     /* Фильтры скрыты по умолчанию на мобиле */
-    #filters-wrap { display: none; position: absolute; pointer-events: none; }
-    #filters-toggle { display: block !important; }
     #mobile-top-bar { display: flex !important; }
     /* Скрываем десктопный блок со статистикой и кнопкой на мобиле */
     #desktop-stats-bar { display: none !important; }
@@ -278,10 +276,6 @@
       ✉️ Оставить заявку
     </button>
   </div>
-
-  <button id="filters-toggle" onclick="toggleFilters()" style="display:none;width:100%;padding:9px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:12px;cursor:pointer;margin-bottom:8px;text-align:left;">
-    🔍 Фильтры ▼
-  </button>
   <div id="filters-wrap">
   <div class="filters">
     <input type="text" id="search" placeholder="Поиск по марке или модели...">
@@ -793,37 +787,11 @@ document.addEventListener('click', function(e) {
   }
 });
 
-function toggleFilters() {
-  const wrap = document.getElementById('filters-wrap');
-  const btn = document.getElementById('filters-toggle');
-  const hidden = wrap.style.display === 'none' || getComputedStyle(wrap).display === 'none';
-  if (!hidden) {
-    wrap.style.display = 'none';
-    wrap.style.position = 'absolute';
-    wrap.style.pointerEvents = 'none';
-    btn.textContent = '🔍 Фильтры ▼';
-  } else {
-    wrap.style.display = 'block';
-    wrap.style.position = 'relative';
-    wrap.style.pointerEvents = 'auto';
-    btn.textContent = '🔍 Фильтры ▲';
-  }
-}
+function toggleFilters() {}
 
 function initMobile() {
   const btn = document.getElementById('filters-toggle');
-  const wrap = document.getElementById('filters-wrap');
-  if (window.innerWidth <= 600) {
-    btn.style.display = 'block';
-    wrap.style.display = 'none';
-    wrap.style.position = 'absolute';
-    wrap.style.pointerEvents = 'none';
-  } else {
-    btn.style.display = 'none';
-    wrap.style.display = 'block';
-    wrap.style.position = 'relative';
-    wrap.style.pointerEvents = 'auto';
-  }
+  // filters always visible
 }
 
 window.addEventListener('resize', initMobile);
