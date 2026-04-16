@@ -761,10 +761,9 @@ document.addEventListener('click', function(e) {
     }
     popup.classList.add('active');
     e.stopPropagation();
-  } else if (!e.target.closest('#rowPopup') && !e.target.closest('#contact-modal') && !window._popupEmailClicked) {
+  } else if (!e.target.closest('#rowPopup') && !e.target.closest('#contact-modal')) {
     closePopup();
   }
-  window._popupEmailClicked = false;
 });
 
 function toggleFilters() {
@@ -845,17 +844,15 @@ init();
   }
 
   function openContactModalFromPopup() {
-    window._popupEmailClicked = true;
-    console.log('openContactModalFromPopup called');
     const copyText = document.getElementById('popupCopyText');
     const msg = copyText ? copyText.textContent : 'Здравствуйте! Интересует авто из Китая под ключ. Прошу связаться со мной.';
-    const modal = document.getElementById('contact-modal');
-    console.log('modal found:', !!modal, 'current display:', modal ? modal.style.display : 'N/A');
     document.getElementById('rowPopup').classList.remove('active');
-    modal.style.display = 'flex';
-    document.getElementById('cf-message').value = msg;
-    generateMathCaptcha();
-    console.log('modal display after:', modal.style.display);
+    setTimeout(() => {
+      const modal = document.getElementById('contact-modal');
+      modal.style.display = 'flex';
+      document.getElementById('cf-message').value = msg;
+      generateMathCaptcha();
+    }, 300);
   }
 
   function openContactModalWithMsg() {
