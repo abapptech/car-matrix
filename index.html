@@ -93,7 +93,9 @@
     border-bottom: 1px solid var(--border2); white-space: nowrap;
     cursor: pointer; user-select: none; transition: color 0.15s;
   }
+  th::after { content: ' ⇅'; color: var(--border2); font-size: 10px; }
   th:hover { color: var(--text); }
+  th:hover::after { color: var(--muted); }
   th.sort-asc::after { content: ' ↑'; color: var(--accent); }
   th.sort-desc::after { content: ' ↓'; color: var(--accent); }
   td { padding: 9px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
@@ -134,7 +136,36 @@
   .pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(200,240,74,0.08); border: 1px solid rgba(200,240,74,0.2); border-radius: 99px; padding: 3px 10px; font-family: var(--font-mono); font-size: 10px; color: var(--accent); margin-left: 1rem; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  @media (max-width: 600px) { .main { padding: 1rem; } header { padding: 1.5rem 1rem 1rem; } }
+  @media (max-width: 600px) {
+    .main { padding: 0.75rem; }
+    header { padding: 1rem; gap: 1rem; }
+    header h1 { font-size: 16px; }
+
+    /* Фильтры — компактные */
+    .filters { gap: 6px; }
+    .filters input[type="text"] { min-width: 100%; font-size: 13px; }
+    .filters select { font-size: 12px; height: 34px; padding: 6px 28px 6px 8px; }
+    .price-filter { height: 34px; padding: 3px 8px; }
+    .price-filter input[type="number"] { width: 60px; font-size: 11px; }
+    .price-filter-label { font-size: 9px; }
+
+    /* Таблица — скрываем ненужные колонки на мобиле */
+    table { font-size: 12px; }
+    th, td { padding: 8px 8px; }
+    /* Скрываем: страна(0), объём(3), привод(4), трансмиссия(5), кузов(6) */
+    th:nth-child(1), td:nth-child(1),
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(5), td:nth-child(5),
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(7), td:nth-child(7) { display: none; }
+
+    /* Марка и модель крупнее */
+    td:nth-child(2) { font-size: 13px; font-weight: 700; }
+    td:nth-child(3) { font-size: 12px; }
+
+    /* Цена заметнее */
+    td:nth-child(8) .price, td:nth-child(8) { font-size: 13px; }
+  }
 </style>
 <!-- Yandex.Metrika counter -->
 <script type="text/javascript">
@@ -207,7 +238,6 @@
     </div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
-    <div id="rateIndicator" style="font-family:var(--font-mono);font-size:10px;color:var(--text);display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-items:center;"></div>
     <div style="display:flex;gap:10px;">
       <a href="https://abappcn.ru/calculator/" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:rgba(200,240,74,0.08);border:1px solid rgba(200,240,74,0.25);border-radius:8px;padding:8px 16px;color:var(--accent);text-decoration:none;font-family:var(--font-mono);font-size:12px;font-weight:500;transition:background 0.15s;" onmouseover="this.style.background='rgba(200,240,74,0.15)'" onmouseout="this.style.background='rgba(200,240,74,0.08)'">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
@@ -226,6 +256,10 @@
 </header>
 
 <div class="main">
+  <button id="filters-toggle" onclick="toggleFilters()" style="display:none;width:100%;padding:9px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:12px;cursor:pointer;margin-bottom:8px;text-align:left;">
+    🔍 Фильтры ▼
+  </button>
+  <div id="filters-wrap">
   <div class="filters">
     <input type="text" id="search" placeholder="Поиск по марке или модели...">
     <select id="fCountry"><option value="">Все страны</option></select>
@@ -317,6 +351,7 @@
     </div>
   </div>
 
+  </div><!-- /filters-wrap -->
   <div class="table-wrap">
     <table>
       <thead id="thead"></thead>
@@ -327,6 +362,7 @@
   </div>
 </div>
 
+<div id="rateIndicator" style="padding:10px 2rem;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--border);"></div>
 <footer>
   <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">© Abapp. All rights reserved. Все права защищены.</span>
 </footer>
@@ -707,6 +743,27 @@ document.addEventListener('click', function(e) {
   }
 });
 
+function toggleFilters() {
+  const wrap = document.getElementById('filters-wrap');
+  const btn = document.getElementById('filters-toggle');
+  const visible = wrap.style.display !== 'none';
+  wrap.style.display = visible ? 'none' : 'block';
+  btn.textContent = visible ? '🔍 Фильтры ▼' : '🔍 Фильтры ▲';
+}
+
+function initMobile() {
+  const btn = document.getElementById('filters-toggle');
+  if (window.innerWidth <= 600) {
+    btn.style.display = 'block';
+    document.getElementById('filters-wrap').style.display = 'none';
+  } else {
+    btn.style.display = 'none';
+    document.getElementById('filters-wrap').style.display = 'block';
+  }
+}
+
+window.addEventListener('resize', initMobile);
+
 async function init() {
   try {
     await loadRates();
@@ -744,6 +801,7 @@ async function init() {
       document.getElementById(id).addEventListener(id==='search'?'input':'change', applyFilters);
     });
     applyFilters();
+    initMobile();
   } catch(e) {
     document.getElementById('tbody').innerHTML =
       `<tr><td colspan="12"><div class="empty">Ошибка загрузки. Убедитесь, что таблица открыта для всех по ссылке.</div></td></tr>`;
