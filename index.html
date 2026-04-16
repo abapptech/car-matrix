@@ -832,36 +832,6 @@ async function init() {
 }
 init();
 </script>
-<div class="row-popup" id="rowPopup">
-  <span class="row-popup-close" onclick="closePopup()">✕</span>
-  <div class="row-popup-car" id="popupCar"></div>
-  <a id="popupPhoto" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-family:var(--font-mono);font-size:11px;margin-bottom:16px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-    Посмотреть фото в интернете
-  </a>
-  <div style="border-top:1px solid var(--border);margin-bottom:14px;"></div>
-  <div class="row-popup-title">Оставить заявку</div>
-  <div id="popupCopyBlock" style="display:none;margin-bottom:12px;">
-    <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:6px;">Текст для ВК — скопируйте и вставьте:</div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <div id="popupCopyText" style="font-family:var(--font-mono);font-size:11px;color:var(--text);background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;flex:1;line-height:1.4;"></div>
-      <button onclick="copyPopupText()" id="btnCopy" style="flex-shrink:0;height:36px;padding:0 12px;background:rgba(200,240,74,0.1);border:1px solid rgba(200,240,74,0.3);border-radius:6px;color:var(--accent);font-family:var(--font-mono);font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.15s;">📋 Копировать</button>
-    </div>
-  </div>  <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.07em;">Написать нам</div>
-  <div class="row-popup-btns">
-    <a id="popupVk" href="#" target="_blank" class="btn-vk">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.862-.525-2.049-1.713-1.033-1.01-1.49-1.135-1.745-1.135-.356 0-.458.102-.458.593v1.558c0 .424-.135.678-1.253.678-1.846 0-3.896-1.118-5.336-3.202C4.624 10.857 4 8.408 4 7.932c0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.677.864 2.49 2.303 4.675 2.896 4.675.22 0 .322-.102.322-.66V9.467c-.068-1.186-.695-1.287-.695-1.71 0-.204.17-.407.44-.407h2.744c.372 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.813-.542 1.253-1.406 2.151-3.574 2.151-3.574.119-.254.322-.491.763-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.049.17.474-.085.712-.609.712z"/></svg>
-      ВКонтакте
-    </a>
-    <a id="popupTg" href="#" target="_blank" class="btn-tg">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-      Telegram
-    </a>
-    <button id="popupEmail" onclick="openContactModalFromPopup()" class="btn-tg" style="border:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Unbounded',sans-serif;background:#1a2a3a;color:var(--accent);border:1px solid #2a4a5a">
-      ✉️ Email
-    </button>
-  </div>
-</div>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
@@ -876,12 +846,12 @@ init();
   function openContactModalFromPopup() {
     const copyText = document.getElementById('popupCopyText');
     const msg = copyText ? copyText.textContent : 'Здравствуйте! Интересует авто из Китая под ключ. Прошу связаться со мной.';
+    // Сначала открываем модалку
+    document.getElementById('contact-modal').style.display = 'flex';
+    document.getElementById('cf-message').value = msg;
+    generateMathCaptcha();
+    // Потом закрываем попап
     document.getElementById('rowPopup').classList.remove('active');
-    setTimeout(() => {
-      document.getElementById('contact-modal').style.display = 'flex';
-      document.getElementById('cf-message').value = msg;
-      generateMathCaptcha();
-    }, 50);
   }
 
   function openContactModalWithMsg() {
@@ -970,6 +940,36 @@ init();
     if (e.target === this) closeContactModal();
   });
 </script>
-<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "4428712d099b4cfd89406499fd34b70e"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "4428712d099b4cfd89406499fd34b70e"}'></script><div class="row-popup" id="rowPopup">
+  <span class="row-popup-close" onclick="closePopup()">✕</span>
+  <div class="row-popup-car" id="popupCar"></div>
+  <a id="popupPhoto" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-family:var(--font-mono);font-size:11px;margin-bottom:16px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    Посмотреть фото в интернете
+  </a>
+  <div style="border-top:1px solid var(--border);margin-bottom:14px;"></div>
+  <div class="row-popup-title">Оставить заявку</div>
+  <div id="popupCopyBlock" style="display:none;margin-bottom:12px;">
+    <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:6px;">Текст для ВК — скопируйте и вставьте:</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div id="popupCopyText" style="font-family:var(--font-mono);font-size:11px;color:var(--text);background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:6px;padding:7px 10px;flex:1;line-height:1.4;"></div>
+      <button onclick="copyPopupText()" id="btnCopy" style="flex-shrink:0;height:36px;padding:0 12px;background:rgba(200,240,74,0.1);border:1px solid rgba(200,240,74,0.3);border-radius:6px;color:var(--accent);font-family:var(--font-mono);font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.15s;">📋 Копировать</button>
+    </div>
+  </div>  <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.07em;">Написать нам</div>
+  <div class="row-popup-btns">
+    <a id="popupVk" href="#" target="_blank" class="btn-vk">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.862-.525-2.049-1.713-1.033-1.01-1.49-1.135-1.745-1.135-.356 0-.458.102-.458.593v1.558c0 .424-.135.678-1.253.678-1.846 0-3.896-1.118-5.336-3.202C4.624 10.857 4 8.408 4 7.932c0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.677.864 2.49 2.303 4.675 2.896 4.675.22 0 .322-.102.322-.66V9.467c-.068-1.186-.695-1.287-.695-1.71 0-.204.17-.407.44-.407h2.744c.372 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.813-.542 1.253-1.406 2.151-3.574 2.151-3.574.119-.254.322-.491.763-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.049.17.474-.085.712-.609.712z"/></svg>
+      ВКонтакте
+    </a>
+    <a id="popupTg" href="#" target="_blank" class="btn-tg">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      Telegram
+    </a>
+    <button id="popupEmail" onclick="openContactModalFromPopup()" class="btn-tg" style="border:none;cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Unbounded',sans-serif;background:#1a2a3a;color:var(--accent);border:1px solid #2a4a5a">
+      ✉️ Email
+    </button>
+  </div>
+</div>
+<!-- End Cloudflare Web Analytics -->
 </body>
 </html>
