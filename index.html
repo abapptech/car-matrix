@@ -115,6 +115,9 @@
   tr:hover td { background: var(--surface2); }
   .row-popup { display:none; position:fixed; z-index:9000; background:var(--surface2); border:1px solid var(--border2); border-radius:10px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:260px; max-height:90vh; overflow-y:auto; }
   .row-popup.active { display:block; }
+  @media (max-width:600px) {
+    .row-popup.active { left:0 !important; right:0 !important; bottom:0 !important; top:auto !important; width:100% !important; max-width:100% !important; min-width:0 !important; max-height:80vh !important; border-radius:16px 16px 0 0; box-sizing:border-box; }
+  }
   .row-popup-title { font-family:var(--font-mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px; }
   .row-popup-car { font-family:var(--font-head); font-size:14px; color:var(--text); margin-bottom:14px; }
   .row-popup-btns { display:flex; gap:10px; }
@@ -167,7 +170,7 @@
     td:nth-child(8) .price, td:nth-child(8) { font-size: 13px; }
 
     /* Фильтры скрыты по умолчанию на мобиле */
-    #filters-wrap { visibility: hidden; height: 0; overflow: hidden; margin: 0; padding: 0; pointer-events: none; }
+    #filters-wrap { display: none; position: absolute; pointer-events: none; }
     #filters-toggle { display: block !important; }
     #mobile-top-bar { display: flex !important; }
     /* Скрываем десктопный блок со статистикой и кнопкой на мобиле */
@@ -765,17 +768,7 @@ document.addEventListener('click', function(e) {
     document.getElementById('popupTg').href = `https://t.me/abappconnect?text=${msg}`;
     // Position near click
     const isMob = window.innerWidth <= 600;
-    if (isMob) {
-      popup.style.left = '8px';
-      popup.style.right = '8px';
-      popup.style.bottom = '8px';
-      popup.style.top = 'auto';
-      popup.style.width = 'auto';
-      popup.style.maxWidth = 'none';
-      popup.style.minWidth = 'auto';
-      popup.style.maxHeight = (window.innerHeight - 80) + 'px';
-      popup.style.overflowY = 'auto';
-    } else {
+    if (!isMob) {
       popup.style.right = '';
       popup.style.bottom = '';
       popup.style.width = '';
@@ -803,17 +796,15 @@ document.addEventListener('click', function(e) {
 function toggleFilters() {
   const wrap = document.getElementById('filters-wrap');
   const btn = document.getElementById('filters-toggle');
-  const visible = wrap.style.visibility !== 'hidden' && wrap.style.height !== '0px';
-  if (visible) {
-    wrap.style.visibility = 'hidden';
-    wrap.style.height = '0';
-    wrap.style.overflow = 'hidden';
+  const hidden = wrap.style.display === 'none' || getComputedStyle(wrap).display === 'none';
+  if (!hidden) {
+    wrap.style.display = 'none';
+    wrap.style.position = 'absolute';
     wrap.style.pointerEvents = 'none';
     btn.textContent = '🔍 Фильтры ▼';
   } else {
-    wrap.style.visibility = 'visible';
-    wrap.style.height = 'auto';
-    wrap.style.overflow = 'visible';
+    wrap.style.display = 'block';
+    wrap.style.position = 'relative';
     wrap.style.pointerEvents = 'auto';
     btn.textContent = '🔍 Фильтры ▲';
   }
@@ -824,15 +815,13 @@ function initMobile() {
   const wrap = document.getElementById('filters-wrap');
   if (window.innerWidth <= 600) {
     btn.style.display = 'block';
-    wrap.style.visibility = 'hidden';
-    wrap.style.height = '0';
-    wrap.style.overflow = 'hidden';
+    wrap.style.display = 'none';
+    wrap.style.position = 'absolute';
     wrap.style.pointerEvents = 'none';
   } else {
     btn.style.display = 'none';
-    wrap.style.visibility = 'visible';
-    wrap.style.height = 'auto';
-    wrap.style.overflow = 'visible';
+    wrap.style.display = 'block';
+    wrap.style.position = 'relative';
     wrap.style.pointerEvents = 'auto';
   }
 }
