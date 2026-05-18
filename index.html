@@ -737,7 +737,7 @@ function calcPrices(pCny, cc, kw) {
     rVtb: vtbRate, rCbr: cnyCbrRate, rEur: eurRate,
     etype: 'ice', age: 'mid',
     cc: cc || 1500, kw: kw || 110, emKw: 0,
-    comm: 11000, deliveryManual: 0,   // ← 0, как в калькуляторе при не выбранном городе
+    comm: 11000, deliveryManual: 4000,   // фикс. перевозка 4 000 ¥ по КНР (приближение для матрицы)
     deliveryIncluded: false, toBorderOnly: false,
     distMan: 0, distErl: 0, distSui: 0, distHor: 0,
   };
