@@ -641,14 +641,14 @@ function calculate(p) {
   const pTax    = Math.max(pCny, pMax || pCny);
   const ovhdCny = age === 'new' ? 0 : pCny * 0.005;
   const expDocCny = 0;
-  const emHp    = emKw * KW2HP;
+  const emHp    = emKw * F.KW2HP();
   const rMnt    = 0.0227417 * 1.03;
 
-  const duty   = customsDuty(etype, age, pTax, cc, emHp, rVtb, rEur, kw, rCbr);
-  const excise = customsExcise(etype, emHp);
-  const nds    = customsNDS(etype, pTax, rCbr || rVtb, duty, excise);
-  const clear  = customsClear((age === 'new' || etype === 'electric') ? pTax : pCny, rVtb);
-  const util   = utilshor(etype, cc, kw, emKw, age);
+  const duty   = F.customsDuty(etype, age, pTax, cc, emHp, rVtb, rEur, kw, rCbr);
+  const excise = F.customsExcise(etype, emHp);
+  const nds    = F.customsNDS(etype, pTax, rCbr || rVtb, duty, excise);
+  const clear  = F.customsClear((age === 'new' || etype === 'electric') ? pTax : pCny, rVtb);
+  const util   = F.utilshor(etype, cc, kw, emKw, age);
   const expertiza = age === 'new' ? 4500 : 1500;
 
   const showChinaDelivery   = !deliveryIncluded;
@@ -753,6 +753,109 @@ function calcPrices(pCny, cc, kw) {
     return null;
   }
 }
+
+
+// ── ФОРМУЛЫ ИЗ КАЛЬКУЛЯТОРА ───────────────────────────────────────────────
+// Загружает блоки расчётных функций из репо abapptech/calculator и подменяет
+// ими встроенные в матрицу. При правке формул в калькуляторе матрица
+// автоматически использует новые правила без ручного синка.
+// Cache: localStorage на 1 час. Fallback: при ошибке остаются встроенные.
+
+const FORMULAS_CACHE_KEY = 'abapp_formulas_v1';
+const FORMULAS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 час
+const FORMULAS_SOURCES = [
+  'https://raw.githubusercontent.com/abapptech/calculator/main/index.html',
+  'https://cdn.jsdelivr.net/gh/abapptech/calculator@main/index.html',
+];
+
+const FORMULA_PATTERNS = [
+  { name: 'KW2HP',         re: /const KW2HP = [^;]+;/ },
+  { name: 'UB',            re: /const UB = 20000;/ },
+  { name: 'EL',            re: /const EL = \[[\s\S]*?\];/ },
+  { name: 'ICE1',          re: /const ICE1 = \[[\s\S]*?\];/ },
+  { name: 'ICE2',          re: /const ICE2 = \[[\s\S]*?\];/ },
+  { name: 'ICE3',          re: /const ICE3 = \[[\s\S]*?\];/ },
+  { name: 'ICE4',          re: /const ICE4 = \[[\s\S]*?\];/ },
+  { name: 'ICE5',          re: /const ICE5 = \[[\s\S]*?\];/ },
+  { name: 'akcizRate',     re: /function akcizRate\([\s\S]*?\n\}/ },
+  { name: 'lookICE',       re: /function lookICE\([\s\S]*?\n\}/ },
+  { name: 'lookElectric',  re: /function lookElectric\([\s\S]*?\n\}/ },
+  { name: 'customsDuty',   re: /function customsDuty\([\s\S]*?\n\}/ },
+  { name: 'dutyICE',       re: /function dutyICE\([\s\S]*?\n\}/ },
+  { name: 'customsExcise', re: /function customsExcise\([\s\S]*?\n\}/ },
+  { name: 'customsNDS',    re: /function customsNDS\([\s\S]*?\n\}/ },
+  { name: 'customsClear',  re: /function customsClear\([\s\S]*?\n\}/ },
+  { name: 'utilshor',      re: /function utilshor\([\s\S]*?\n\}/ },
+];
+
+function extractFormulasBlock(html) {
+  const parts = [];
+  const missing = [];
+  for (const { name, re } of FORMULA_PATTERNS) {
+    const m = html.match(re);
+    if (!m) { missing.push(name); continue; }
+    parts.push(m[0]);
+  }
+  if (missing.length) {
+    throw new Error('Не найдены блоки в калькуляторе: ' + missing.join(', '));
+  }
+  return parts.join('\n');
+}
+
+function applyFormulasCode(code) {
+  const names = FORMULA_PATTERNS.map(p => p.name);
+  // Через new Function: создаём изолированную область, возвращаем функции/константы.
+  const factory = new Function(code + '\nreturn { ' + names.join(', ') + ' };');
+  const exported = factory();
+  window.__formulas = exported;
+  return exported;
+}
+
+async function loadFormulasFromCalculator() {
+  // 1. Кеш
+  try {
+    const cached = JSON.parse(localStorage.getItem(FORMULAS_CACHE_KEY) || 'null');
+    if (cached && (Date.now() - cached.ts) < FORMULAS_CACHE_TTL_MS && cached.code) {
+      applyFormulasCode(cached.code);
+      console.log(`[FORMULAS] из кеша localStorage (возраст ${Math.round((Date.now()-cached.ts)/60000)} мин)`);
+      return true;
+    }
+  } catch (e) {}
+
+  // 2. Сеть
+  let lastErr = null;
+  for (const url of FORMULAS_SOURCES) {
+    try {
+      const res = await fetch(url + '?t=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const html = await res.text();
+      const code = extractFormulasBlock(html);
+      applyFormulasCode(code);
+      try {
+        localStorage.setItem(FORMULAS_CACHE_KEY, JSON.stringify({ ts: Date.now(), code }));
+      } catch (e) {}
+      console.log(`[FORMULAS] загружены из ${url.split('/')[2]} (${code.length} chars)`);
+      return true;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[FORMULAS] источник ${url.split('/')[2]} не сработал: ${e.message}`);
+    }
+  }
+  console.warn('[FORMULAS] используем встроенные. Причина:', lastErr && lastErr.message);
+  return false;
+}
+
+// Роутеры: вызовы расчётных функций идут через F.*,
+// которые перенаправляют либо в window.__formulas, либо во встроенные.
+const F = {
+  KW2HP:         () => (window.__formulas ? window.__formulas.KW2HP : KW2HP),
+  UB:            () => (window.__formulas ? window.__formulas.UB    : UB),
+  customsDuty:   (...a) => ((window.__formulas && window.__formulas.customsDuty)   || customsDuty)(...a),
+  customsExcise: (...a) => ((window.__formulas && window.__formulas.customsExcise) || customsExcise)(...a),
+  customsNDS:    (...a) => ((window.__formulas && window.__formulas.customsNDS)    || customsNDS)(...a),
+  customsClear:  (...a) => ((window.__formulas && window.__formulas.customsClear)  || customsClear)(...a),
+  utilshor:      (...a) => ((window.__formulas && window.__formulas.utilshor)      || utilshor)(...a),
+};
 
 
 async function loadData() {
@@ -920,7 +1023,8 @@ async function loadData() {
   allData = result;
   applyFilters();
 
-  // Локальный расчёт цен
+  // Подтянуть формулы из калькулятора (если доступен) и посчитать цены
+  await loadFormulasFromCalculator();
   const toCalc = result.filter(d => d.yuan);
   if (toCalc.length > 0) {
     toCalc.forEach(d => {
