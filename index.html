@@ -731,32 +731,123 @@ function calcPrices(pCny, cc, kw) {
 
 
 async function loadData() {
-  // ── Шаг 1: Загрузка из Google Sheets ──
+  // ── MATRIX_VER: 2026-05-18-col-autodetect ──────────────────────────────
+  // Шаг 1: Загрузка из Google Sheets
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
   const res = await fetch(url);
   const text = await res.text();
   const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+
+  const cols = json.table.cols;
+
+  // Нормализация заголовка: lower, ё→е, пунктуация в пробелы, схлопывание пробелов
+  const norm = s => String(s || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[.,;:()«»"'`]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Является ли заголовок датой (история цен) — такие колонки исключаем из поиска цены
+  const isDateHeader = s => {
+    const t = String(s || '').trim();
+    return /^\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}$/.test(t)
+        || /^\d{4}[.\/\-]\d{1,2}[.\/\-]\d{1,2}$/.test(t)
+        || /^Date\(/.test(t);
+  };
+
+  const colInfo = cols.map((c, i) => ({
+    idx: i,
+    label: (c.label || c.id || '').trim(),
+    normLabel: norm(c.label || c.id || ''),
+    isDate: isDateHeader(c.label) || c.type === 'date' || c.type === 'datetime',
+    type: c.type,
+  }));
+
+  function findCol(synonyms, opts) {
+    opts = opts || {};
+    const pool = opts.excludeDates ? colInfo.filter(c => !c.isDate) : colInfo;
+    for (const syn of synonyms) {
+      const n = norm(syn);
+      const hit = pool.find(c => c.normLabel === n);
+      if (hit) return hit;
+    }
+    for (const syn of synonyms) {
+      const n = norm(syn);
+      const hit = pool.find(c => c.normLabel.includes(n));
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  const map = {
+    country: findCol(['страна происхождения бренда', 'страна бренда', 'страна происхождения', 'страна']),
+    brand:   findCol(['марка', 'бренд']),
+    model:   findCol(['модель', 'model']),
+    yuan:    findCol(['средняя цена в юанях', 'средняя цена', 'цена в юанях', 'цена в кнр', 'юань', 'юани', 'cny'], { excludeDates: true }),
+    engine:  findCol(['объем двс л', 'объем двс', 'объем', 'двигатель', 'engine']),
+    drive:   findCol(['тип привода', 'привод', 'drive']),
+    trans:   findCol(['тип трансмиссии', 'трансмиссия', 'кпп', 'transmission']),
+    body:    findCol(['тип кузова', 'кузов', 'body']),
+  };
+
+  console.log('[MATRIX_VER 2026-05-18] Найденные колонки:');
+  Object.entries(map).forEach(([k, info]) => {
+    console.log(`  ${k.padEnd(8)} → ${info ? `col ${info.idx} "${info.label}"` : 'НЕ НАЙДЕНА'}`);
+  });
+
+  const required = ['country', 'brand', 'yuan'];
+  const missing = required.filter(k => !map[k]);
+  if (missing.length) {
+    console.error('[MATRIX] Не найдены обязательные колонки:', missing,
+      '\nДоступные заголовки:', colInfo.map(c => c.label));
+    const tbody = document.getElementById('tbody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="10" style="color:#f87171;padding:24px;text-align:center;font-family:var(--font-mono);font-size:12px">Не удалось определить структуру таблицы. Не найдены: ${missing.join(', ')}.<br>Откройте консоль (F12) — там список доступных заголовков.</td></tr>`;
+    }
+    return [];
+  }
+
+  // Шаг 2: парсинг строк
   const rows = json.table.rows;
   const result = [];
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] && rows[i].c ? rows[i].c : null;
     if (!r) continue;
-    const val = v => r[v] && r[v].v !== null ? String(r[v].v).trim() : '';
-    const num = v => r[v] && r[v].v !== null ? Number(r[v].v) : null;
-    const country = val(1), brand = val(2);
+    const val = idx => (idx != null && r[idx] && r[idx].v !== null && r[idx].v !== undefined)
+      ? String(r[idx].v).trim() : '';
+    const num = idx => {
+      if (idx == null || !r[idx] || r[idx].v === null || r[idx].v === undefined) return null;
+      const v = r[idx].v;
+      if (typeof v === 'number') return v;
+      const cleaned = String(v).replace(/\s|\u00A0/g, '').replace(',', '.');
+      const n = Number(cleaned);
+      return isNaN(n) ? null : n;
+    };
+
+    const country = val(map.country.idx);
+    const brand   = val(map.brand.idx);
     if (!brand || !country) continue;
-    if (country.toLowerCase().includes('страна') || country.toLowerCase().includes('бренд')) continue;
-    result.push({ country, brand, model: val(3), engine: val(4),
-      drive: val(5), trans: val(6), body: val(7),
-      kyakhta: null, zabaikalsk: null, ussuriysk: null,
-      aleksandrov: null, yuan: num(12) });
+    if (country.toLowerCase().includes('страна') || brand.toLowerCase().includes('марка')) continue;
+
+    result.push({
+      country,
+      brand,
+      model:  map.model  ? val(map.model.idx)  : '',
+      engine: map.engine ? val(map.engine.idx) : '',
+      drive:  map.drive  ? val(map.drive.idx)  : '',
+      trans:  map.trans  ? val(map.trans.idx)  : '',
+      body:   map.body   ? val(map.body.idx)   : '',
+      yuan:   num(map.yuan.idx),
+      kyakhta: null, zabaikalsk: null, ussuriysk: null, aleksandrov: null,
+    });
   }
 
-  // ── Шаг 2: Показываем таблицу сразу (без цен) ──
+  // Шаг 3: рендер без цен
   allData = result;
   applyFilters();
 
-  // ── Шаг 3: Локальный расчёт цен (без внешних запросов) ──
+  // Шаг 4: локальный расчёт цен
   const toCalc = result.filter(d => d.yuan);
   if (toCalc.length > 0) {
     toCalc.forEach(d => {
